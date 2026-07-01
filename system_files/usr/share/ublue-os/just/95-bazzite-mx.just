@@ -31,7 +31,9 @@ _pkg_layered pkg:
 # Install Discord from RPM Fusion non-free (rpm-ostree layer)
 #
 # The .repo file in /etc/yum.repos.d/ is the single source of truth,
-# flipped `enabled=0` -> `enabled=1` via sed. The shipped
+# flipped `enabled=0` -> `enabled=1` via sed scoped to the main
+# [rpmfusion-nonfree-updates] section — the debuginfo/source sections in
+# the same file stay disabled. The shipped
 # /usr/etc/dnf/repos.override.d/99-config_manager.repo has no
 # [rpmfusion-nonfree-updates] section, so nothing overrides this flip.
 #
@@ -42,7 +44,7 @@ _pkg_layered pkg:
 # invisible to the second solve. Reboot between recipes.
 [group("apps")]
 install-discord:
-    #!/usr/bin/env bash
+    #!/usr/bin/bash
     set -eo pipefail
 
     cat <<'EOF'
@@ -57,11 +59,11 @@ install-discord:
     fi
 
     repo_path="/etc/yum.repos.d/rpmfusion-nonfree-updates.repo"
-    if ( ! grep -q "enabled=0" "$repo_path" ); then
+    if sed -n '/^\[rpmfusion-nonfree-updates\]$/,/^\[/p' "$repo_path" | grep -q '^enabled=1'; then
         echo 'RPM Fusion non-free updates is already enabled, skipping.'
     else
         echo 'Enabling RPM Fusion non-free updates.'
-        sudo sed -i 's@enabled=0@enabled=1@g' "$repo_path"
+        sudo sed -i '/^\[rpmfusion-nonfree-updates\]$/,/^\[/ s/^enabled=0/enabled=1/' "$repo_path"
     fi
 
     echo 'Installing discord...'
@@ -78,7 +80,7 @@ install-discord:
 # a reboot in between (see install-discord block comment).
 [group("apps")]
 install-1password:
-    #!/usr/bin/env bash
+    #!/usr/bin/bash
     set -eo pipefail
 
     cat <<'EOF'
@@ -127,7 +129,7 @@ install-1password:
 # Reset DNF repos and config-manager overrides to the image defaults
 [group("system")]
 reset-repos:
-    #!/usr/bin/env bash
+    #!/usr/bin/bash
     set -eo pipefail
 
     cat <<'EOF'
@@ -149,7 +151,7 @@ reset-repos:
             [ -z "$path" ] && continue
             case "$code" in
                 \*deleting) remove+=("${dst}${path}") ;;
-                [\<\>]*)    restore+=("${dst}${path}") ;;
+                [\<\>c]*)   restore+=("${dst}${path}") ;;
             esac
         done < <(rsync -ainc --delete "$src" "$dst" 2>/dev/null)
     done
@@ -201,16 +203,18 @@ reset-repos:
 # immediate.
 [group("hardware")]
 setup-msi ACTION="":
-    #!/usr/bin/env bash
+    #!/usr/bin/bash
     set -eo pipefail
     source /usr/lib/ujust/ujust.sh
 
     MODULES_LOAD=/etc/modules-load.d/bazzite-mx-msi.conf
     REPO_PATH=/etc/yum.repos.d/teackot-msi.repo
 
+    # Same jq query as the `_pkg_layered` helper recipe: `--arg` keeps the
+    # package name out of the jq program, `// []` guards a null .packages.
     layered_package() {
         local pkg="$1"
-        rpm-ostree status --json | jq -e ".deployments[] | select(.booted == true) | .packages | index(\"$pkg\")" > /dev/null
+        rpm-ostree status --json | jq -e --arg p "$pkg" '.deployments[] | select(.booted == true) | (.packages // []) | index($p)' > /dev/null
     }
 
     get_status_token() {

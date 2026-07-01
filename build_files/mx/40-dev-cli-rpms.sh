@@ -30,7 +30,7 @@ dnf5 -y install \
     bpftrace \
     bpftop \
     sysprof \
-    iotop \
+    iotop-c \
     nicstat \
     numactl \
     trace-cmd \

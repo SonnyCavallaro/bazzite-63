@@ -88,7 +88,9 @@ done
 echo ""
 echo "Checking RPM Fusion repositories..."
 for repo in "$REPOS_DIR"/rpmfusion-*.repo; do
-    [[ -f "$repo" ]] && check_repo_file "$repo"
+    [[ -f "$repo" ]] || continue
+    [[ -n "${CHECKED[$(basename "$repo")]:-}" ]] && continue
+    check_repo_file "$repo"
 done
 
 # Informational catch-all: list every .repo file not covered by the
@@ -123,6 +125,7 @@ if [[ $VALIDATION_FAILED -eq 1 ]]; then
     for repo in "${ENABLED_REPOS[@]}"; do
         echo "  - $repo"
     done
+    echo "::endgroup::"
     exit 1
 fi
 
