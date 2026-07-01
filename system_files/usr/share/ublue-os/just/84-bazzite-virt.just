@@ -1,17 +1,17 @@
 # vim: set ft=make :
 #
-# 84-bazzite-virt.just — bazzite-mx OVERRIDE of Bazzite's upstream
+# 84-bazzite-virt.just — bazzite-63 OVERRIDE of Bazzite's upstream
 # virtualization recipe.
 #
 # Upstream's `setup-virtualization virt-on` is gated on `! rpm -q
-# virt-manager`, FALSE on bazzite-mx (virt-manager is RPM-installed at
+# virt-manager`, FALSE on bazzite-63 (virt-manager is RPM-installed at
 # build time), so the whole branch is skipped and the user gets nothing.
 # This recipe drops:
 #   - the `! rpm -q virt-manager` gate and the `flatpak install
 #     org.virt_manager.virt-manager` line (RPM is the source of truth;
 #     the flatpak is blocklisted in 21-virt-manager-flatpak-exclude.sh);
 #   - the kvm.ignore_msrs / kvm.report_ignored_msrs kargs (shipped as
-#     module options in /usr/lib/modprobe.d/bazzite-mx-kvm.conf);
+#     module options in /usr/lib/modprobe.d/bazzite-63-kvm.conf);
 #   - the `bazzite-libvirtd-setup.service` enable (libvirtd.service is
 #     enabled at build time in 20-virtualization.sh);
 #   - the virt-off `flatpak uninstall` path;
@@ -53,7 +53,7 @@ setup-virtualization ACTION="":
       echo "  Use 'usbhp-off' to select Disable SPICE USB hot plugging"
       echo "  NOTE: KVM options (kvm.ignore_msrs / kvm.report_ignored_msrs) and"
       echo "        libvirtd.service are pre-applied at build time on"
-      echo "        bazzite-mx — no virt-off path; uninstall the image"
+      echo "        bazzite-63 — no virt-off path; uninstall the image"
       echo "        if you don't want virt support."
       exit 0
     elif [ "$OPTION" == "" ]; then

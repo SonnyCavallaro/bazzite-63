@@ -11,12 +11,12 @@ set -euxo pipefail
 CTX="${CTX:-/ctx}"
 
 # 1. IP forwarding for Docker
-cat > /etc/sysctl.d/90-bazzite-mx-forwarding.conf <<'EOF'
+cat > /etc/sysctl.d/90-bazzite-63-forwarding.conf <<'EOF'
 net.ipv4.conf.all.forwarding = 1
 net.ipv6.conf.all.forwarding = 1
 EOF
 mkdir -p /etc/modules-load.d
-echo iptable_nat > /etc/modules-load.d/90-bazzite-mx-nat.conf
+echo iptable_nat > /etc/modules-load.d/90-bazzite-63-nat.conf
 
 # 2. Run all numbered MX scripts (build_files/mx/*.sh) in lexical order
 MX="$CTX/build_files/mx"
