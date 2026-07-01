@@ -1,3 +1,4 @@
 cosign.key
 _build*
 output
+.superpowers/
