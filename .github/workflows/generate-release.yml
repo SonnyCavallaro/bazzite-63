@@ -37,7 +37,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: bazzite-mx-release-${{ inputs.stream_name }}-${{ inputs.upstream_tag }}
+  group: bazzite-63-release-${{ inputs.stream_name }}-${{ inputs.upstream_tag }}
   cancel-in-progress: false
 
 jobs:
@@ -134,9 +134,7 @@ jobs:
             skopeo inspect --no-tags "docker://ghcr.io/${OWNER_LC}/$1:${RELEASE_TAG}" | jq -r .Digest
           }
           {
-            echo "base=$(resolve bazzite-mx)"
-            echo "nvidia=$(resolve bazzite-mx-nvidia)"
-            echo "nvidia_open=$(resolve bazzite-mx-nvidia-open)"
+            echo "base=$(resolve bazzite-63)"
           } >> "$GITHUB_OUTPUT"
 
       - name: Render changelog body
@@ -146,13 +144,11 @@ jobs:
           RELEASE_TAG: ${{ steps.inputs.outputs.release_tag }}
           PREV_TAG: ${{ steps.prev.outputs.tag }}
           DIGEST_MAIN: ${{ steps.digests.outputs.base }}
-          DIGEST_NVIDIA: ${{ steps.digests.outputs.nvidia }}
-          DIGEST_NVIDIA_OPEN: ${{ steps.digests.outputs.nvidia_open }}
         run: |
           set -euo pipefail
           ./.github/scripts/changelog.sh \
             "$UPSTREAM_TAG" "$RELEASE_TAG" "$PREV_TAG" \
-            "$DIGEST_MAIN" "$DIGEST_NVIDIA" "$DIGEST_NVIDIA_OPEN" "$STREAM_NAME" > changelog.md
+            "$DIGEST_MAIN" "$STREAM_NAME" > changelog.md
           echo "--- preview ---"
           head -60 changelog.md
 

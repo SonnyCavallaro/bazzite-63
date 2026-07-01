@@ -1,9 +1,9 @@
 # vim: set ft=make :
 #
-# 82-bazzite-sunshine.just — bazzite-mx OVERRIDE of Bazzite's upstream
+# 82-bazzite-sunshine.just — bazzite-63 OVERRIDE of Bazzite's upstream
 # brew-flavored Sunshine recipe.
 #
-# bazzite-mx ships Sunshine as a system RPM (build_files/mx/65-sunshine.sh)
+# bazzite-63 ships Sunshine as a system RPM (build_files/mx/65-sunshine.sh)
 # with the user unit `app-dev.lizardbyte.app.Sunshine.service` (alias
 # `sunshine.service`); upstream's brew-based recipe fails here because
 # brew is never installed. This recipe drops the brew/Cellar references,
