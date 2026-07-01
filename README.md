@@ -59,9 +59,10 @@ sandbox-limited Flatpak; and `gparted`, restored after Bazzite dropped the KDE p
 **Extras that stay opt-in.** Discord, 1Password, Sunshine game-streaming, and full MSI-laptop EC
 control each ship as a `ujust` recipe you enable only if you want it — the base image stays lean for
 everyone who doesn't. MSI is the standout: stock Bazzite ships an in-tree driver that *rejects* recent
-MSI EC firmware, so fan and curve control simply don't work. Bazzite MX builds the current upstream
-`msi-ec` + `acpi_ec` modules and ships the MControlCenter GUI to drive them — `ujust setup-msi enable`
-and you're in business. ([the full story](docs/wins-over-upstream.md))
+MSI EC firmware, so fan and curve control simply don't work. Bazzite MX bakes the current
+upstream `msi-ec` + `acpi_ec` modules into the image, and `ujust setup-msi enable` layers the
+MControlCenter GUI to drive them — you're in business.
+([the full story](docs/wins-over-upstream.md))
 
 The itemised list, with provenance and rationale for every choice, lives in
 [docs/wins-over-upstream.md](docs/wins-over-upstream.md).
@@ -76,11 +77,14 @@ signed by digest with cosign → a GitHub Release is cut. Push to `main` runs th
 Build a single variant locally before pushing (the maintainer's pre-flight, ~5 min):
 
 ```bash
+BASE_TAG=$(skopeo inspect --no-tags docker://ghcr.io/ublue-os/bazzite:stable \
+    | jq -r '.Labels["org.opencontainers.image.version"]')
+KERNEL_VERSION=$(skopeo inspect --no-tags docker://ghcr.io/ublue-os/bazzite:${BASE_TAG} \
+    | jq -r '.Labels["ostree.linux"]')
 podman build --file Containerfile \
   --build-arg BASE_IMAGE=bazzite \
-  --build-arg BASE_TAG=$(skopeo inspect --no-tags \
-      docker://ghcr.io/ublue-os/bazzite:stable \
-      | jq -r '.Labels["org.opencontainers.image.version"]') \
+  --build-arg BASE_TAG=${BASE_TAG} \
+  --build-arg KERNEL_VERSION=${KERNEL_VERSION} \
   --build-arg IMAGE_NAME=bazzite-mx \
   --tag localhost/bazzite-mx:preflight .
 ```

@@ -4,7 +4,9 @@ Canonical, tool-agnostic instructions for any coding agent working on this repo.
 
 ## Project overview
 
-`bazzite-mx` is a personal **bootc atomic distribution** built on top of Bazzite. **Single-flavour by design**: no `IMAGE_TIER` toggle, no `-dx` suffix variants. The build pipeline is unconditional and applied always. Three GHCR images differ only in `BASE_IMAGE`:
+`bazzite-mx` is a personal **bootc atomic distribution** built on top of Bazzite.
+**Single-flavour by design**: no `IMAGE_TIER` toggle, no `-dx` suffix variants. The build
+pipeline is unconditional and applied always. Three GHCR images differ only in `BASE_IMAGE`:
 
 | Image | BASE_IMAGE | Use case |
 |---|---|---|
@@ -54,7 +56,8 @@ Pre-flighting a build locally is covered by the *Quick command cheatsheet* below
    "my proposal validated by Y").
 
 7. **Skip a phase when upstream handles it well**. Document why in the
-   commit / status table; don't re-derive the decision next session.
+   commit message and in `docs/wins-over-upstream.md`; don't re-derive
+   the decision next session.
 
 8. **CI naming conventions**: Workflow `name:` = Title Case (`Build Stable`).
    Job/step `name:` = sentence case, imperative + object (`Resolve release
@@ -91,9 +94,11 @@ CLAUDE.md                   # Claude Code bridge → @AGENTS.md
 Containerfile               # 3 RUN steps: build.sh → 10-tests-mx.sh → bootc lint
 build_files/{shared,mx,tests,kmods}/
 system_files/{etc,usr}/
-docs/                       # deep knowledge: architecture, conventions, gotchas, workflow, preferences, wins
-.github/workflows/          # build-stable, build-testing, clean, generate-release, reusable-build, watch-upstream
-.claude/                    # Claude Code config: settings.json + commands/preflight.md
+site/                       # GitHub Pages landing page (index.html + assets)
+docs/                       # deep knowledge: architecture, conventions, gotchas, workflow, wins
+.github/workflows/          # build-stable, build-testing, clean, deploy-pages, generate-release, reusable-build, watch-upstream
+.github/scripts/changelog.sh  # release-notes generator used by generate-release
+.claude/                    # Claude Code config: settings.json + commands/preflight.md + hooks/{repo-enabled-guard,shellcheck-edit}.sh
 cosign.{key,pub}            # .key gitignored
 ```
 
@@ -119,17 +124,23 @@ generate-release   (workflow_call / dispatch) ─► takes stream_name + upstrea
 | `develop` | ✓ | ✗ | ✗ | ✗ | ✗ — fast CI sandbox |
 | PR to `main` | ✓ | ✗ | ✗ | ✗ | ✗ |
 
-Rebuild on the same upstream produces incremental tags `44.20260511.1`, `.2`, … both as GitHub Release and as immutable GHCR image tag (the original `:44.20260511` stays pinned to its first build's digest; `:stable` is mutable and always points to the latest build).
+Rebuild on the same upstream produces incremental tags `44.20260511.1`, `.2`, … both as
+GitHub Release and as immutable GHCR image tag (the original `:44.20260511` stays pinned to
+its first build's digest; `:stable` is mutable and always points to the latest build).
 
 ## Quick command cheatsheet
 
 ```bash
-# Pre-flight one flavour locally (~5 min)
+# Pre-flight one flavour locally (~5 min) — the /preflight slash command wraps this
+BASE_TAG=$(skopeo inspect --no-tags docker://ghcr.io/ublue-os/bazzite:stable \
+    | jq -r '.Labels["org.opencontainers.image.version"]')
+KERNEL_VERSION=$(skopeo inspect --no-tags docker://ghcr.io/ublue-os/bazzite:${BASE_TAG} \
+    | jq -r '.Labels["ostree.linux"]')
 podman build --file Containerfile \
   --build-arg BASE_IMAGE=bazzite \
-  --build-arg BASE_TAG=$(skopeo inspect --no-tags \
-      docker://ghcr.io/ublue-os/bazzite:stable \
-      | jq -r '.Labels["org.opencontainers.image.version"]') \
+  --build-arg BASE_TAG=${BASE_TAG} \
+  --build-arg KERNEL_VERSION=${KERNEL_VERSION} \
+  --build-arg FEDORA_VERSION=${BASE_TAG%%.*} \
   --build-arg IMAGE_NAME=bazzite-mx \
   --tag localhost/bazzite-mx:preflight .
 
