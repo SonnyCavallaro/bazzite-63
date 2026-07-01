@@ -5,7 +5,8 @@ with its source. What bazzite-mx itself changes over Bazzite, and why, is its ow
 [`docs/divergences.md`](https://github.com/MatrixDJ96/bazzite-mx/blob/main/docs/divergences.md):
 every entry there holds here too unless an entry below says otherwise.
 
-Contents: layered on bazzite-mx's signed image · identity and signing · the host helpers.
+Contents: layered on bazzite-mx's signed image · identity and signing · the host helpers ·
+Firefox as a Flatpak.
 
 ## Layered on bazzite-mx's signed image
 
@@ -45,6 +46,25 @@ bazzite-mx ships `ujust migrate`, `ujust verify-host` and the library they share
 a host to bazzite-mx's registry and check bazzite-mx's scope. `12-host-helpers.sh` renames the
 scope and its `registries.d` file to this image's in the three files, fixtures included, after
 checking that each line it relies on is there exactly once; everything else in the helpers is
-bazzite-mx's. What they check and do is bazzite-mx's
+bazzite-mx's, apart from the browser items of § Firefox as a Flatpak. What they check and do is
+bazzite-mx's
 [`docs/migration.md`](https://github.com/MatrixDJ96/bazzite-mx/blob/main/docs/migration.md);
 what differs on this image is [`migration.md`](migration.md).
+
+## Firefox as a Flatpak
+
+bazzite-mx installs Fedora's Firefox RPM, copies Bazzite's Firefox defaults into it and denies
+the Firefox Flatpak in the base's Flatpak filter: its `40-desktop-apps.sh`, and the section
+Desktop applications of its
+[`docs/divergences.md`](https://github.com/MatrixDJ96/bazzite-mx/blob/main/docs/divergences.md).
+This image goes back to Bazzite's choice, the Flatpak `org.mozilla.firefox`, the first entry of
+Bazzite's default list `/usr/share/ublue-os/bazzite/flatpak/install`.
+
+`40-firefox-flatpak.sh` removes `firefox` and `firefox-langpacks` and the directory the copied
+defaults leave behind, `/usr/lib64/firefox`, and drops the line `deny org.mozilla.firefox/*`
+from `/usr/share/ublue-os/flatpak-blocklist`, the filter `bazzite-flatpak-manager` sets on
+Flathub. It also rewrites the two places bazzite-mx's helpers treat the RPM as the browser:
+`verify-host`'s `check_flatpaks`, which reported a Firefox Flatpak beside the RPM as a leftover,
+now reports the Flatpak as the browser and its absence as an `INFO:` line; `migrate`'s step 8
+no longer prints the copy of a Flatpak profile into the RPM's. Each edit first requires its
+anchor exactly once.

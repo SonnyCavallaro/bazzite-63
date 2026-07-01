@@ -65,6 +65,7 @@ Each script owns one artefact and ships a `--self-test`.
 | `10-image-info.sh`      | identity: `image-info.json`, os-release, the KDE About page                                                                                  |
 | `11-image-signing.sh`   | the public key and the `policy.json` scope for `ghcr.io/sonnycavallaro`, next to the base's                                                  |
 | `12-host-helpers.sh`    | the base's `migrate`, `verify-host` and `host.sh` renamed onto `ghcr.io/sonnycavallaro`, each anchor checked first                           |
+| `40-firefox-flatpak.sh` | bazzite-mx's Firefox RPM removed, its Flatpak deny line dropped, the helpers' Firefox check and step 8 item replaced, each anchor checked    |
 | `90-validate-repos.sh`  | the repository gate, run after the last install                                                                                              |
 | `95-clean-stage.sh`     | the tree bootc lint and the rechunk expect                                                                                                   |
 | `tests/run.sh`          | the test runner and the pairing guard                                                                                                        |
