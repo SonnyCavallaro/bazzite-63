@@ -1,5 +1,5 @@
 #!/usr/bin/bash
-# MX smoke tests. Runs after the build orchestrator, immediately before
+# bazzite-63 smoke tests. Runs after the build orchestrator, immediately before
 # bootc container lint. Blocking: every assertion exits 1 on failure.
 #
 # Each domain script in build_files/mx/ extends this file with rpm-q +
@@ -11,39 +11,39 @@ echo "::group:: ===$(basename "$0")==="
 set -euxo pipefail
 
 # --- IP forwarding sysctl marker ---
-if [ ! -f /etc/sysctl.d/90-bazzite-mx-forwarding.conf ]; then
-    echo "FAIL: missing /etc/sysctl.d/90-bazzite-mx-forwarding.conf"
+if [ ! -f /etc/sysctl.d/90-bazzite-63-forwarding.conf ]; then
+    echo "FAIL: missing /etc/sysctl.d/90-bazzite-63-forwarding.conf"
     exit 1
 fi
 
 # --- iptable_nat modules-load marker ---
-if [ ! -f /etc/modules-load.d/90-bazzite-mx.conf ]; then
-    echo "FAIL: missing /etc/modules-load.d/90-bazzite-mx.conf"
+if [ ! -f /etc/modules-load.d/90-bazzite-63.conf ]; then
+    echo "FAIL: missing /etc/modules-load.d/90-bazzite-63.conf"
     exit 1
 fi
 
 # --- Image identity + KDE about-page branding (00-image-info.sh) ---
-grep -qE '"image-name":[[:space:]]*"bazzite-mx(-nvidia(-open)?)?"' /usr/share/ublue-os/image-info.json || {
+grep -qE '"image-name":[[:space:]]*"bazzite-63(-nvidia(-open)?)?"' /usr/share/ublue-os/image-info.json || {
     echo "FAIL: /usr/share/ublue-os/image-info.json image-name not rewritten"
     cat /usr/share/ublue-os/image-info.json
     exit 1
 }
-grep -qE '"image-vendor":[[:space:]]*"matrixdj96"' /usr/share/ublue-os/image-info.json || {
-    echo "FAIL: /usr/share/ublue-os/image-info.json image-vendor not rewritten to matrixdj96"
+grep -qE '"image-vendor":[[:space:]]*"sonnycavallaro"' /usr/share/ublue-os/image-info.json || {
+    echo "FAIL: /usr/share/ublue-os/image-info.json image-vendor not rewritten to sonnycavallaro"
     grep image-vendor /usr/share/ublue-os/image-info.json || true
     exit 1
 }
-grep -qE '^VARIANT_ID=bazzite-mx(-nvidia(-open)?)?$' /usr/lib/os-release || {
+grep -qE '^VARIANT_ID=bazzite-63(-nvidia(-open)?)?$' /usr/lib/os-release || {
     echo "FAIL: /usr/lib/os-release VARIANT_ID not rewritten"
     grep ^VARIANT_ID= /usr/lib/os-release || true
     exit 1
 }
-grep -qE '^Variant=Bazzite-MX( \(NVIDIA( Open)?\))?$' /etc/xdg/kcm-about-distrorc || {
+grep -qE '^Variant=bazzite-63( \(NVIDIA( Open)?\))?$' /etc/xdg/kcm-about-distrorc || {
     echo "FAIL: /etc/xdg/kcm-about-distrorc Variant not rewritten or malformed"
     grep ^Variant= /etc/xdg/kcm-about-distrorc || true
     exit 1
 }
-grep -q '^Website=https://github.com/MatrixDJ96/bazzite-mx$' /etc/xdg/kcm-about-distrorc || {
+grep -q '^Website=https://github.com/SonnyCavallaro/bazzite-63$' /etc/xdg/kcm-about-distrorc || {
     echo "FAIL: /etc/xdg/kcm-about-distrorc Website not rewritten"
     grep ^Website= /etc/xdg/kcm-about-distrorc || true
     exit 1
@@ -103,7 +103,7 @@ for u in "${VIRT_UNITS[@]}"; do
 done
 
 # --- Phase 4: KVM kargs (kvm.ignore_msrs / kvm.report_ignored_msrs) ---
-VIRT_KARGS_FILE=/usr/lib/bootc/kargs.d/01-bazzite-mx-virt.toml
+VIRT_KARGS_FILE=/usr/lib/bootc/kargs.d/01-bazzite-63-virt.toml
 if [ ! -f "$VIRT_KARGS_FILE" ]; then
     echo "FAIL: $VIRT_KARGS_FILE missing"
     exit 1
@@ -121,7 +121,7 @@ if [ ! -f "$VIRT_JUSTFILE" ]; then
     echo "FAIL: $VIRT_JUSTFILE missing"
     exit 1
 fi
-grep -q 'bazzite-mx OVERRIDE of Bazzite' "$VIRT_JUSTFILE" || {
+grep -q 'bazzite-63 OVERRIDE of Bazzite' "$VIRT_JUSTFILE" || {
     echo "FAIL: $VIRT_JUSTFILE is the upstream version (override not applied)"
     exit 1
 }
@@ -194,46 +194,6 @@ for b in "${CLI_BINARIES[@]}"; do
     [ -x "/usr/bin/$b" ] || { echo "FAIL: /usr/bin/$b missing or not executable"; exit 1; }
 done
 
-# --- Phase 7: Firefox from Mozilla's official RPM repo ---
-# The build replaces Bazzite's Flathub flatpak with the Mozilla RPM
-# (61-firefox-rpm.sh). Assertions:
-#  - firefox + firefox-l10n-it installed
-#  - VENDOR = "Mozilla" (guard against regression to the Fedora rpm
-#    or accidental layer of the flatpak's bin/firefox)
-FIREFOX_RPMS=( firefox firefox-l10n-it )
-for p in "${FIREFOX_RPMS[@]}"; do
-    rpm -q "$p" >/dev/null || { echo "FAIL: rpm $p missing"; exit 1; }
-done
-firefox_vendor=$(rpm -q --qf '%{VENDOR}\n' firefox 2>/dev/null)
-if [ "$firefox_vendor" != "Mozilla" ]; then
-    echo "FAIL: firefox VENDOR is '$firefox_vendor' (expected 'Mozilla')"
-    exit 1
-fi
-
-# --- Phase 7: Firefox flatpak exclusion ---
-INSTALL_LIST=/usr/share/ublue-os/bazzite/flatpak/install
-BLOCKLIST=/usr/share/ublue-os/flatpak-blocklist
-if [ -f "$INSTALL_LIST" ] && grep -qx "org.mozilla.firefox" "$INSTALL_LIST"; then
-    echo "FAIL: $INSTALL_LIST still contains org.mozilla.firefox"
-    exit 1
-fi
-grep -q '^deny org\.mozilla\.firefox/\*$' "$BLOCKLIST" || {
-    echo "FAIL: $BLOCKLIST missing firefox deny line"
-    exit 1
-}
-
-# --- Phase 7: Firefox cleanup hooks (system + user) ---
-FIREFOX_HOOK_SYS=/usr/share/ublue-os/system-setup.hooks.d/15-bazzite-mx-firefox-flatpak-cleanup.sh
-FIREFOX_HOOK_USER=/usr/share/ublue-os/user-setup.hooks.d/15-bazzite-mx-firefox-flatpak-cleanup.sh
-if [ ! -x "$FIREFOX_HOOK_SYS" ]; then
-    echo "FAIL: $FIREFOX_HOOK_SYS missing or not executable"
-    exit 1
-fi
-if [ ! -x "$FIREFOX_HOOK_USER" ]; then
-    echo "FAIL: $FIREFOX_HOOK_USER missing or not executable"
-    exit 1
-fi
-
 # --- Phase 8: 1Password vendored repo + GPG key fetched at build ---
 ONEPW_REPO=/etc/yum.repos.d/1password.repo
 ONEPW_GPGKEY=/etc/pki/rpm-gpg/1password.asc
@@ -270,8 +230,8 @@ if [ ! -f /usr/lib/systemd/user/ublue-user-setup.service ]; then
     exit 1
 fi
 
-# --- Phase 9: bazzite-mx-groups system-setup hook (v2) ---
-GROUPS_HOOK=/usr/share/ublue-os/system-setup.hooks.d/10-bazzite-mx-groups.sh
+# --- Phase 9: bazzite-63-groups system-setup hook (v2) ---
+GROUPS_HOOK=/usr/share/ublue-os/system-setup.hooks.d/10-bazzite-63-groups.sh
 if [ ! -x "$GROUPS_HOOK" ]; then
     echo "FAIL: $GROUPS_HOOK missing or not executable"
     exit 1
@@ -280,13 +240,13 @@ if [ ! -f /usr/lib/ublue/setup-services/libsetup.sh ]; then
     echo "FAIL: /usr/lib/ublue/setup-services/libsetup.sh missing"
     exit 1
 fi
-grep -qE '^version-script bazzite-mx-groups system 2[[:space:]]' "$GROUPS_HOOK" || {
+grep -qE '^version-script bazzite-63-groups system 2[[:space:]]' "$GROUPS_HOOK" || {
     echo "FAIL: $GROUPS_HOOK is not at version 2 (regression on docker-group fix)"
     exit 1
 }
 
 # --- Phase 9: docker group via sysusers.d (compensates rpm-ostree scriptlet suppression) ---
-DOCKER_SYSUSERS=/usr/lib/sysusers.d/bazzite-mx-docker.conf
+DOCKER_SYSUSERS=/usr/lib/sysusers.d/bazzite-63-docker.conf
 if [ ! -f "$DOCKER_SYSUSERS" ]; then
     echo "FAIL: $DOCKER_SYSUSERS missing (docker-ce group gap not patched)"
     exit 1
@@ -316,6 +276,23 @@ grep -q '^reset-repos:' "$MX_JUSTFILE" || {
 }
 grep -q "import \"/usr/share/ublue-os/just/95-bazzite-mx.just\"" /usr/share/ublue-os/justfile || {
     echo "FAIL: import line for 95-bazzite-mx.just missing from master justfile"
+    exit 1
+}
+
+# --- bazzite-63: companion justfile (96) shipped + import wired ---
+B63_JUSTFILE=/usr/share/ublue-os/just/96-bazzite-63.just
+if [ ! -f "$B63_JUSTFILE" ]; then
+    echo "FAIL: $B63_JUSTFILE missing"
+    exit 1
+fi
+for recipe in setup-dev install-winboat install-rider install-sap-gui install-ibm-acs setup-m365-pwa; do
+    grep -q "^${recipe}" "$B63_JUSTFILE" || {
+        echo "FAIL: ${recipe} recipe not found in $B63_JUSTFILE"
+        exit 1
+    }
+done
+grep -q "import \"/usr/share/ublue-os/just/96-bazzite-63.just\"" /usr/share/ublue-os/justfile || {
+    echo "FAIL: import line for 96-bazzite-63.just missing from master justfile"
     exit 1
 }
 
@@ -372,7 +349,7 @@ if [ ! -f "$SUNSHINE_JUSTFILE" ]; then
     echo "FAIL: $SUNSHINE_JUSTFILE missing"
     exit 1
 fi
-grep -q 'bazzite-mx OVERRIDE of Bazzite' "$SUNSHINE_JUSTFILE" || {
+grep -q 'bazzite-63 OVERRIDE of Bazzite' "$SUNSHINE_JUSTFILE" || {
     echo "FAIL: $SUNSHINE_JUSTFILE is the upstream brew-flavored version"
     exit 1
 }
@@ -486,5 +463,25 @@ grep -qF 'root-fs-type = "btrfs"' "$BOOTC_INSTALL_FILE" || {
     exit 1
 }
 
-echo "MX smoke tests OK."
+# --- bazzite-63: mise bootstrap (profile.d activation + skel runtime config) ---
+[ -f /etc/profile.d/99-mise.sh ] || { echo "FAIL: /etc/profile.d/99-mise.sh missing"; exit 1; }
+[ -f /etc/skel/.config/mise/config.toml ] || { echo "FAIL: mise skel config.toml missing"; exit 1; }
+
+# --- bazzite-63: GUI apps in the Flatpak default-install list ---
+FLATPAK_INSTALL_LIST=/usr/share/ublue-os/bazzite/flatpak/install
+for app in com.google.Chrome org.mozilla.Thunderbird me.proton.Pass \
+           io.dbeaver.DBeaverCommunity org.remmina.Remmina \
+           com.parsecgaming.parsec com.discordapp.Discord; do
+    grep -qxF "$app" "$FLATPAK_INSTALL_LIST" || { echo "FAIL: $app not in Flatpak default-install"; exit 1; }
+done
+
+# --- bazzite-63: Chrome default-browser user hook ---
+[ -x /usr/share/ublue-os/user-setup.hooks.d/21-bazzite-63-default-browser.sh ] || {
+    echo "FAIL: Chrome default-browser hook missing or not executable"; exit 1; }
+
+# --- bazzite-63: removed integrations are gone ---
+[ ! -f /etc/yum.repos.d/mozilla.repo ] || { echo "FAIL: mozilla.repo should be removed"; exit 1; }
+! rpm -q firefox &> /dev/null || { echo "FAIL: firefox RPM should not be installed (Firefox stays Flatpak)"; exit 1; }
+
+echo "bazzite-63 smoke tests OK."
 echo "::endgroup::"
