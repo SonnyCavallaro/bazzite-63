@@ -138,8 +138,8 @@ grep -q '^deny org\.virt_manager\.virt-manager/\*$' "$FLATPAK_BLOCKLIST" || {
 }
 
 # --- Phase 4: virt-manager flatpak cleanup hooks ---
-VIRT_HOOK_SYSTEM=/usr/share/ublue-os/system-setup.hooks.d/16-cleanup-virt-manager-flatpak.sh
-VIRT_HOOK_USER=/usr/share/ublue-os/user-setup.hooks.d/16-cleanup-virt-manager-flatpak.sh
+VIRT_HOOK_SYSTEM=/usr/share/ublue-os/system-setup.hooks.d/16-bazzite-mx-virt-manager-flatpak-cleanup.sh
+VIRT_HOOK_USER=/usr/share/ublue-os/user-setup.hooks.d/16-bazzite-mx-virt-manager-flatpak-cleanup.sh
 if [ ! -x "$VIRT_HOOK_SYSTEM" ]; then
     echo "FAIL: $VIRT_HOOK_SYSTEM missing or not executable"
     exit 1
@@ -188,7 +188,7 @@ for p in "${DEV_CLI_RPMS[@]}"; do
     rpm -q "$p" >/dev/null || { echo "FAIL: rpm $p missing"; exit 1; }
 done
 
-# --- Phase 6: CLI binaries from official releases (41-cli-binaries.sh) ---
+# --- Phase 6: CLI binaries from official releases (41-dev-cli-pinned.sh) ---
 CLI_BINARIES=( gh glab shellcheck shfmt )
 for b in "${CLI_BINARIES[@]}"; do
     [ -x "/usr/bin/$b" ] || { echo "FAIL: /usr/bin/$b missing or not executable"; exit 1; }
@@ -196,7 +196,7 @@ done
 
 # --- Phase 7: Firefox from Mozilla's official RPM repo ---
 # The build replaces Bazzite's Flathub flatpak with the Mozilla RPM
-# (45-firefox-rpm.sh). Assertions:
+# (61-firefox-rpm.sh). Assertions:
 #  - firefox + firefox-l10n-it installed
 #  - VENDOR = "Mozilla" (guard against regression to the Fedora rpm
 #    or accidental layer of the flatpak's bin/firefox)
@@ -223,8 +223,8 @@ grep -q '^deny org\.mozilla\.firefox/\*$' "$BLOCKLIST" || {
 }
 
 # --- Phase 7: Firefox cleanup hooks (system + user) ---
-FIREFOX_HOOK_SYS=/usr/share/ublue-os/system-setup.hooks.d/15-cleanup-firefox-flatpak.sh
-FIREFOX_HOOK_USER=/usr/share/ublue-os/user-setup.hooks.d/15-cleanup-firefox-flatpak.sh
+FIREFOX_HOOK_SYS=/usr/share/ublue-os/system-setup.hooks.d/15-bazzite-mx-firefox-flatpak-cleanup.sh
+FIREFOX_HOOK_USER=/usr/share/ublue-os/user-setup.hooks.d/15-bazzite-mx-firefox-flatpak-cleanup.sh
 if [ ! -x "$FIREFOX_HOOK_SYS" ]; then
     echo "FAIL: $FIREFOX_HOOK_SYS missing or not executable"
     exit 1
@@ -247,7 +247,7 @@ RPMFUSION_REPOS=(
 for r in "${RPMFUSION_REPOS[@]}"; do
     [ -f "$r" ] || { echo "FAIL: $r missing"; exit 1; }
     if grep -q "^enabled=1" "$r"; then
-        echo "FAIL: $r should be enabled=0 after 47-rpmfusion-release.sh sed"
+        echo "FAIL: $r should be enabled=0 after 63-rpmfusion-release.sh sed"
         exit 1
     fi
 done
@@ -269,7 +269,7 @@ if grep -q "^enabled=1" "$ONEPW_REPO"; then
     exit 1
 fi
 if [ ! -s "$ONEPW_GPGKEY" ]; then
-    echo "FAIL: $ONEPW_GPGKEY missing or empty (48-1password-key.sh broken?)"
+    echo "FAIL: $ONEPW_GPGKEY missing or empty (64-1password-key.sh broken?)"
     exit 1
 fi
 
@@ -353,7 +353,7 @@ for p in "${DESKTOP_RPMS[@]}"; do
 done
 
 # --- Phase 11: vscode-extensions user-setup hook ---
-VSCODE_HOOK=/usr/share/ublue-os/user-setup.hooks.d/11-vscode-extensions.sh
+VSCODE_HOOK=/usr/share/ublue-os/user-setup.hooks.d/11-bazzite-mx-vscode-extensions.sh
 if [ ! -x "$VSCODE_HOOK" ]; then
     echo "FAIL: $VSCODE_HOOK missing or not executable"
     exit 1
@@ -465,9 +465,10 @@ grep -q '^setup-msi ' "$MX_JUSTFILE" || {
     exit 1
 }
 
-# --- Phase 18: acpi_ec out-of-tree module (build-time, opt-in) ---
-# acpi_ec re-exposes /sys/kernel/debug/ec/ (fan RPM + curves for MControlCenter).
-# Unlike msi-ec there is no in-tree copy, but it still ships under updates/.
+# --- Phase 17: acpi_ec out-of-tree module (build-time, opt-in) ---
+# acpi_ec creates the root-only /dev/ec chardev (fan RPM + curves for
+# MControlCenter). Unlike msi-ec there is no in-tree copy, but it still
+# ships under updates/.
 ACPI_EC_KO="/usr/lib/modules/${MSI_KVER}/updates/drivers/acpi/acpi_ec.ko.xz"
 if [ ! -f "$ACPI_EC_KO" ]; then
     echo "FAIL: $ACPI_EC_KO missing (acpi_ec build/install broken?)"
@@ -485,7 +486,7 @@ if ! LC_ALL=C xz --list "$ACPI_EC_KO" 2>/dev/null | grep -q 'CRC32'; then
     exit 1
 fi
 
-# --- Phase 17: MControlCenter GUI (opt-in via ujust setup-msi) ---
+# --- Phase 18: MControlCenter GUI (opt-in via ujust setup-msi) ---
 MCC_REPO=/etc/yum.repos.d/teackot-msi.repo
 if [ ! -f "$MCC_REPO" ]; then
     echo "FAIL: $MCC_REPO missing (teackot/msi COPR repofile not vendored)"

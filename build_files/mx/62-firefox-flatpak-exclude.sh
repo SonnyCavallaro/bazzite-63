@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 # MX block 46: exclude the Firefox flatpak from Bazzite's default-install
-# and hide it from Discover/Bazaar (companion to 45-firefox-rpm.sh).
+# and hide it from Discover/Bazaar (companion to 61-firefox-rpm.sh).
 #
 # Drift-tolerant: patch the Bazzite files in place at build time rather
 # than overriding them with static copies:

@@ -17,7 +17,7 @@ BLOCKLIST=/usr/share/ublue-os/flatpak-blocklist
 ### Extend flatpak-blocklist with virt-manager ###
 # Idempotent: append only if the line isn't already there. We extend
 # instead of replacing so we don't drop upstream entries (Steam,
-# Lutris, Firefox-from-46-firefox-flatpak-exclude.sh, ...).
+# Lutris, Firefox-from-62-firefox-flatpak-exclude.sh, ...).
 if [ ! -f "$BLOCKLIST" ]; then
     echo "FAIL: $BLOCKLIST not found (did Bazzite change layout?)"
     exit 1
