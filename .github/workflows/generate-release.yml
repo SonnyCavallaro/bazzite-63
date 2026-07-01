@@ -44,12 +44,13 @@ jobs:
   generate-release:
     name: Compose changelog & publish
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
       packages: read
     steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
 
@@ -79,8 +80,10 @@ jobs:
           if [[ "$UP" =~ ^(testing-)?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then UP="${UP%.*}"; fi
           RT="$INPUT_RELEASE_TAG"
           if [ -z "$RT" ]; then
-            # workflow_dispatch fallback: run collision detection on the fly
-            EXISTING=$(gh release list --repo "$REPO_FULL" --limit 200 --json tagName -q '.[].tagName' || true)
+            # workflow_dispatch fallback: run collision detection on the fly.
+            # gh exits 0 with empty output when the repo has no releases yet
+            # (first run → bare tag below); a real API failure aborts via set -e.
+            EXISTING=$(gh release list --repo "$REPO_FULL" --limit 200 --json tagName -q '.[].tagName')
             if ! echo "$EXISTING" | grep -qx "$UP"; then
               RT="$UP"
             else

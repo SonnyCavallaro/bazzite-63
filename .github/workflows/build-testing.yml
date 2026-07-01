@@ -32,10 +32,7 @@ on:
         type: string
         default: ""
 
-permissions:
-  contents: write
-  packages: write
-  id-token: write
+permissions: {}
 
 concurrency:
   group: bazzite-mx-testing-${{ github.ref_name }}
@@ -46,6 +43,9 @@ jobs:
     name: Resolve release tag
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
     outputs:
       upstream_tag: ${{ steps.compute.outputs.upstream_tag }}
       release_tag: ${{ steps.compute.outputs.release_tag }}
@@ -92,12 +92,13 @@ jobs:
   validate-just:
     name: Validate just syntax
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - name: Install Just
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Install just
         run: |
           set -euo pipefail
           /home/linuxbrew/.linuxbrew/bin/brew install just
@@ -123,6 +124,9 @@ jobs:
     if: ${{ !cancelled() && needs.validate-just.result == 'success' && (needs.resolve.result == 'success' || needs.resolve.result == 'skipped') }}
     uses: ./.github/workflows/reusable-build.yml
     secrets: inherit
+    permissions:
+      contents: read
+      packages: write
     with:
       stream_name: testing
       upstream_tag: ${{ needs.resolve.outputs.upstream_tag || '' }}
@@ -133,7 +137,6 @@ jobs:
     needs: [resolve, build]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && needs.build.result == 'success' && needs.resolve.result == 'success'
     uses: ./.github/workflows/generate-release.yml
-    secrets: inherit
     permissions:
       contents: write
       packages: read
