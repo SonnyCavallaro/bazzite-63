@@ -1,0 +1,8 @@
+# Default per-user dev runtimes, provisioned by `ujust setup-dev` (mise install).
+# Override per-project with a local mise.toml. Runtimes live in $HOME, never in
+# the read-only image.
+[tools]
+node = "lts"
+python = "3.14"
+java = "temurin-21"
+dotnet = "10"
