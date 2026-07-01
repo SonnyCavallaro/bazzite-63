@@ -8,7 +8,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: bazzite-mx-watch-upstream
+  group: bazzite-63-watch-upstream
   cancel-in-progress: false
 
 jobs:
@@ -36,10 +36,10 @@ jobs:
 
           OWNER_LC=$(echo "$REPO_OWNER" | tr '[:upper:]' '[:lower:]')
 
-          # All three flavours track the same upstream tag (only BASE_IMAGE
+          # All flavours track the same upstream tag (only BASE_IMAGE
           # differs), so a stream is stale when ANY image's recorded base tag
           # diverges from the latest upstream tag.
-          IMAGES="bazzite-mx bazzite-mx-nvidia bazzite-mx-nvidia-open"
+          IMAGES="bazzite-63"
 
           read_current_tag() {
             local image=$1 stream=$2

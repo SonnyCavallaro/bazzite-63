@@ -24,7 +24,7 @@ dnf5 -y install https://release.gitkraken.com/linux/gitkraken-amd64.rpm
 # every git client — CLI, VSCode, GitKraken — picks up cached HTTPS
 # credentials transparently. Aurora ships this in their base layer
 # (build_files/base/01-packages.sh:84); Bazzite base does not. Adding
-# it here brings the Aurora "secure-by-default" git UX to bazzite-mx.
+# it here brings the Aurora "secure-by-default" git UX to bazzite-63.
 dnf5 -y install git-credential-libsecret
 
 echo "::endgroup::"

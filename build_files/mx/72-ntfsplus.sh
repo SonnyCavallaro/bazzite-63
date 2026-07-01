@@ -23,7 +23,7 @@ depmod "$KVER"
 # mount(8) hands any type owning a /sbin/mount.<type> helper to that helper before
 # it ever reaches the kernel, and ntfs-3g ships both of these as symlinks to
 # mount.ntfs-3g — so an fstab line of type "ntfs" silently lands on FUSE while the
-# kernel driver stays unused (gotcha #26). The `mount -i` escape is a command-line
+# kernel driver stays unused (gotcha #32). The `mount -i` escape is a command-line
 # flag with no fstab equivalent, and a systemd .mount unit inherits the trap because
 # it executes mount(8) too (systemd.mount(5)). Removing the two generic symlinks is
 # what makes the type selectable from fstab. The ntfs-3g PACKAGE stays installed —

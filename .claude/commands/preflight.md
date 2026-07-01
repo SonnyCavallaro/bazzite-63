@@ -1,11 +1,11 @@
 ---
-description: Run a local podman pre-flight build of bazzite-mx (single flavour, no NVIDIA) before pushing to CI.
+description: Run a local podman pre-flight build of bazzite-63 (single flavour, no NVIDIA) before pushing to CI.
 allowed-tools: Bash(podman build:*), Bash(podman images:*), Bash(podman run --rm:*), Bash(skopeo inspect:*), Bash(jq:*), Read
 argument-hint: "[base_tag]"
 ---
 
-Run a local pre-flight build of bazzite-mx for the `bazzite` (non-NVIDIA) flavour. This
-catches issues 5 minutes locally instead of after 15 minutes across 6 CI jobs.
+Run a local pre-flight build of bazzite-63 for the `bazzite` (non-NVIDIA) flavour. This
+catches issues 5 minutes locally instead of after 15 minutes in CI.
 
 Steps:
 1. Resolve the latest stable Bazzite tag (or use $1 if provided as argument):
@@ -17,23 +17,23 @@ Steps:
 2. Run `podman build` with --build-args matching `.github/workflows/reusable-build.yml`:
    - `BASE_IMAGE=bazzite`
    - `BASE_TAG=<resolved>`
-   - `IMAGE_NAME=bazzite-mx`
-   - `IMAGE_VENDOR=matrixdj96`
+   - `IMAGE_NAME=bazzite-63`
+   - `IMAGE_VENDOR=sonnycavallaro`
    - `VERSION=<tag>`
    - `UPSTREAM_TAG=<tag>`
    - `KERNEL_VERSION=<resolved>`
    - `FEDORA_VERSION=<major of BASE_TAG>` (Containerfile default: 44)
-   - `--tag localhost/bazzite-mx:preflight`
-3. Redirect stdout+stderr to `/tmp/bazzite-mx-preflight.log`.
+   - `--tag localhost/bazzite-63:preflight`
+3. Redirect stdout+stderr to `/tmp/bazzite-63-preflight.log`.
 4. Capture and propagate the build exit code:
-   `BUILD_EXIT=$?; echo "BUILD_EXIT=$BUILD_EXIT" >> /tmp/bazzite-mx-preflight.log; exit $BUILD_EXIT`.
+   `BUILD_EXIT=$?; echo "BUILD_EXIT=$BUILD_EXIT" >> /tmp/bazzite-63-preflight.log; exit $BUILD_EXIT`.
 5. Run as `run_in_background: true` so the harness notifies on completion — do **not**
    poll with sleep loops.
 
 When the background job finishes, summarize:
-- `grep BUILD_EXIT /tmp/bazzite-mx-preflight.log`
+- `grep BUILD_EXIT /tmp/bazzite-63-preflight.log`
 - Last 20 lines of log (smoke test result, bootc lint summary)
-- `podman images localhost/bazzite-mx:preflight` (image size)
+- `podman images localhost/bazzite-63:preflight` (image size)
 - One-line verdict: ready-to-push / fix-needed (with file:line if the failure is identifiable)
 
 Common failure modes to watch for, in order of frequency:
@@ -46,4 +46,4 @@ Common failure modes to watch for, in order of frequency:
 3. **dnf5 install URL fails**: the upstream URL changed or is rate-limiting. Verify with
    `curl -sL --range 0-1023 <url>` (HEAD often rejected by CDNs).
 
-Reference: `AGENTS.md` § Quick command cheatsheet + `docs/gotchas.md`.
+Reference: `AGENTS.md` + `docs/gotchas.md`.

@@ -37,7 +37,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: bazzite-mx-release-${{ inputs.stream_name }}-${{ inputs.upstream_tag }}
+  group: bazzite-63-release-${{ inputs.stream_name }}-${{ inputs.upstream_tag }}
   cancel-in-progress: false
 
 jobs:
@@ -87,10 +87,10 @@ jobs:
           OWNER_LC="${REPO_FULL%%/*}"; OWNER_LC="${OWNER_LC,,}"
           RT="$INPUT_RELEASE_TAG"
           if [ -n "$RT" ]; then
-            # Friendly gate on ALL THREE flavours: a tag missing on any image
-            # (typo, or a matrix that pushed only partially) would otherwise
-            # die as a cryptic skopeo 404 at the digest-pinning step.
-            for img in bazzite-mx bazzite-mx-nvidia bazzite-mx-nvidia-open; do
+            # Friendly gate: a missing tag (typo, or a build that never
+            # pushed) would otherwise die as a cryptic skopeo 404 at the
+            # digest-pinning step.
+            for img in bazzite-63; do
               if ! skopeo inspect --no-tags "docker://ghcr.io/${OWNER_LC}/${img}:${RT}" >/dev/null 2>&1; then
                 echo "ERROR: no GHCR image ${img} is tagged ${RT} — nothing to release for this tag."
                 exit 1
@@ -108,7 +108,7 @@ jobs:
               PAT='^testing-[0-9]+\.[0-9]+(\.[0-9]+)?$'
             fi
             EXISTING=$(gh release list --repo "$REPO_FULL" --limit 200 --json tagName -q '.[].tagName')
-            CANDIDATES=$(skopeo list-tags "docker://ghcr.io/${OWNER_LC}/bazzite-mx" \
+            CANDIDATES=$(skopeo list-tags "docker://ghcr.io/${OWNER_LC}/bazzite-63" \
               | jq -r '.Tags[]' | grep -E "$PAT" || true)
             if [ -n "$EXISTING" ] && [ -n "$CANDIDATES" ]; then
               CANDIDATES=$(printf '%s\n' "$CANDIDATES" \
@@ -184,9 +184,7 @@ jobs:
             skopeo inspect --no-tags "docker://ghcr.io/${OWNER_LC}/$1:${RELEASE_TAG}" | jq -r .Digest
           }
           {
-            echo "base=$(resolve bazzite-mx)"
-            echo "nvidia=$(resolve bazzite-mx-nvidia)"
-            echo "nvidia_open=$(resolve bazzite-mx-nvidia-open)"
+            echo "base=$(resolve bazzite-63)"
           } >> "$GITHUB_OUTPUT"
 
       - name: Render changelog body
@@ -197,14 +195,11 @@ jobs:
           PREV_TAG: ${{ steps.prev.outputs.tag }}
           PREV_UPSTREAM: ${{ steps.prev.outputs.upstream }}
           DIGEST_MAIN: ${{ steps.digests.outputs.base }}
-          DIGEST_NVIDIA: ${{ steps.digests.outputs.nvidia }}
-          DIGEST_NVIDIA_OPEN: ${{ steps.digests.outputs.nvidia_open }}
         run: |
           set -euo pipefail
           ./.github/scripts/changelog.sh \
             "$UPSTREAM_TAG" "$RELEASE_TAG" "$PREV_TAG" \
-            "$DIGEST_MAIN" "$DIGEST_NVIDIA" "$DIGEST_NVIDIA_OPEN" \
-            "$STREAM_NAME" "$PREV_UPSTREAM" > changelog.md
+            "$DIGEST_MAIN" "$STREAM_NAME" "$PREV_UPSTREAM" > changelog.md
           echo "--- preview ---"
           head -60 changelog.md
 

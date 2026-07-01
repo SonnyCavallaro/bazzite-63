@@ -1,17 +1,17 @@
 # vim: set ft=make :
 #
-# 96-bazzite-mx-overrides.just — bazzite-mx OVERRIDE delle recipe ujust
+# 96-bazzite-mx-overrides.just — bazzite-63 OVERRIDE delle recipe ujust
 # upstream. Ogni recipe qui rimpiazza una recipe omonima di Bazzite, che
 # `build_files/mx/55-justfile-reconcile.sh` espunge chirurgicamente dai file
 # upstream al build (manifest recipe→file). Le recipe net-new (non-override)
 # stanno invece in 95-bazzite-mx.just.
 
-# setup-virtualization — bazzite-mx OVERRIDE of Bazzite's upstream
+# setup-virtualization — bazzite-63 OVERRIDE of Bazzite's upstream
 # virtualization recipe.
 #
 # Bazzite's own `setup-virtualization` is flatpak-only (commit 8f1c46b4):
 # `virt-on` installs the org.virt_manager.virt-manager flatpak (+ QEMU
-# extension) whenever `flatpak info` misses it — on bazzite-mx that branch
+# extension) whenever `flatpak info` misses it — on bazzite-63 that branch
 # would always fire, duplicating the build-time RPM and fighting the
 # flatpak blocklist. The full recipe (VFIO / kvmfr / usbhp / group) lives
 # on in bazzite-dx's 84-bazzite-virt.just override, which this file tracks.
@@ -20,7 +20,7 @@
 #     org.virt_manager.virt-manager` line (RPM is the source of truth;
 #     the flatpak is blocklisted in 21-virt-manager-flatpak-exclude.sh);
 #   - the kvm.ignore_msrs / kvm.report_ignored_msrs kargs (shipped as
-#     module options in /usr/lib/modprobe.d/bazzite-mx-kvm.conf);
+#     module options in /usr/lib/modprobe.d/bazzite-63-kvm.conf);
 #   - the `bazzite-libvirtd-setup.service` enable (libvirtd.service is
 #     enabled at build time in 20-virtualization.sh);
 #   - the virt-off `flatpak uninstall` path;
@@ -65,7 +65,7 @@ setup-virtualization ACTION="":
       echo "  Use 'usbhp-off' to select Disable SPICE USB hot plugging"
       echo "  NOTE: KVM options (kvm.ignore_msrs / kvm.report_ignored_msrs) and"
       echo "        libvirtd.service are pre-applied at build time on"
-      echo "        bazzite-mx — no virt-off path; uninstall the image"
+      echo "        bazzite-63 — no virt-off path; uninstall the image"
       echo "        if you don't want virt support."
       exit 0
     elif [ "$OPTION" == "" ]; then
@@ -201,14 +201,14 @@ setup-virtualization ACTION="":
       sudo usermod -aG libvirt $USER
     fi
 
-# setup-sunshine — bazzite-mx OVERRIDE of Bazzite's upstream Sunshine recipe.
+# setup-sunshine — bazzite-63 OVERRIDE of Bazzite's upstream Sunshine recipe.
 #
-# bazzite-mx ships Sunshine as a system RPM (build_files/mx/65-sunshine.sh,
+# bazzite-63 ships Sunshine as a system RPM (build_files/mx/65-sunshine.sh,
 # community pvermeer/sunshine COPR) with the user unit
 # `app-dev.lizardbyte.app.Sunshine.service` (alias `sunshine.service`).
 # Upstream's recipe (flatpak-flavored since commit e05b27f8, brew kept for
 # the Deck-oriented `enable-beta` path) manages the
-# dev.lizardbyte.app.Sunshine flatpak: on bazzite-mx its `enable`
+# dev.lizardbyte.app.Sunshine flatpak: on bazzite-63 its `enable`
 # would install a flatpak duplicating the RPM. This recipe drops the
 # flatpak/brew/Cellar handling, `enable-beta`, `update`, and `uninstall`
 # (Sunshine is part of the base image; removal is `rpm-ostree override
@@ -287,7 +287,7 @@ setup-sunshine ACTION="":
 
 # Install JetBrains Toolbox | https://www.jetbrains.com/toolbox-app/
 #
-# bazzite-mx OVERRIDE della recipe brew upstream (82-bazzite-apps.just).
+# bazzite-63 OVERRIDE della recipe brew upstream (82-bazzite-apps.just).
 # Upstream installa via Homebrew cask (ublue-os/tap → jetbrains-toolbox-linux);
 # qui il metodo non-brew Aurora/Bluefin (bluefin PR #397, maturato in #2645 /
 # aurora #581): risolve l'ultima build dalla JetBrains data-services API,
