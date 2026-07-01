@@ -56,7 +56,7 @@ a read-only `/usr`; GitKraken and keyring-backed git auth; a deep tracing kit (`
 `bpftop`, `sysprof`, `iotop-c`, and more); Firefox from Mozilla's own RPM instead of the
 sandbox-limited Flatpak; and `gparted`, restored after Bazzite dropped the KDE partition GUI.
 
-**Extras that stay opt-in.** Discord, 1Password, Sunshine game-streaming, and full MSI-laptop EC
+**Extras that stay opt-in.** 1Password, Sunshine game-streaming, and full MSI-laptop EC
 control each ship as a `ujust` recipe you enable only if you want it — the base image stays lean for
 everyone who doesn't. MSI is the standout: stock Bazzite ships an in-tree driver that *rejects* recent
 MSI EC firmware, so fan and curve control simply don't work. Bazzite MX bakes the current

@@ -46,7 +46,7 @@ build-mx.sh
   └─ enumerate build_files/mx/[0-9]*-*.sh in version order
        (mapfile -t < <(find … | sort -V))
        │
-       └─ 18 numbered domain scripts (00-image-info.sh … 71-acpi-ec.sh)
+       └─ 17 numbered domain scripts (00-image-info.sh … 71-acpi-ec.sh)
 clean-stage.sh
   ├─ dnf5 config-manager setopt keepcache=0
   ├─ dnf5 versionlock clear
@@ -55,7 +55,7 @@ clean-stage.sh
   ├─ find /var/* -maxdepth 0 -type d ! -name cache -exec rm -fr {} \;
   └─ mkdir /var/tmp
 validate-repos.sh
-  └─ hard-fails if any of the 13 OTHER_REPOS entries (or _copr_* / rpmfusion-*) is enabled=1
+  └─ hard-fails if any of the 10 OTHER_REPOS entries (or _copr_* / rpmfusion-*) is enabled=1
 ```
 
 ### Decade map (`build_files/mx/`)
@@ -70,7 +70,7 @@ Each decade owns one domain; `build-mx.sh` runs the scripts in version order:
 | 30 | IDE + git tools | `30-ide.sh`, `35-git-tools.sh` |
 | 40 | Dev CLI (rpms + pinned binaries) | `40-dev-cli-rpms.sh`, `41-dev-cli-pinned.sh` |
 | 50 | Bazzite extras + justfile glue | `50-bazzite-extras.sh`, `55-justfile-import.sh` |
-| 60 | Desktop apps + repo/key provisioning for opt-in layering | `60-desktop-apps.sh`, `61-firefox-rpm.sh`, `62-firefox-flatpak-exclude.sh`, `63-rpmfusion-release.sh`, `64-1password-key.sh`, `65-sunshine.sh` |
+| 60 | Desktop apps + repo/key provisioning for opt-in layering | `60-desktop-apps.sh`, `61-firefox-rpm.sh`, `62-firefox-flatpak-exclude.sh`, `64-1password-key.sh`, `65-sunshine.sh` |
 | 70 | Out-of-tree kmods install | `70-msi-ec.sh`, `71-acpi-ec.sh` |
 
 ### `build_files/kmods/` — out-of-tree kernel modules
@@ -90,7 +90,7 @@ bazzite-mx/
 │   ├── shared/                  # Orchestrator + helpers (build.sh,
 │   │                              build-mx.sh, copr-helpers.sh,
 │   │                              clean-stage.sh, validate-repos.sh)
-│   ├── mx/                      # 18 numbered domain scripts (<NN>-<domain>.sh)
+│   ├── mx/                      # 17 numbered domain scripts (<NN>-<domain>.sh)
 │   ├── kmods/                   # Out-of-tree kernel module builder (see note above)
 │   └── tests/                   # 10-tests-mx.sh (smoke)
 ├── system_files/                # Rsync'd into / by build.sh (yum.repos.d, skel,

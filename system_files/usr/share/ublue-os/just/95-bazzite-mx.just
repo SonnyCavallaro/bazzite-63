@@ -28,56 +28,18 @@
 _pkg_layered pkg:
     @if rpm-ostree status --json | jq -e --arg p "{{ pkg }}" '.deployments[] | select(.booted == true) | (.packages // []) | index($p)' > /dev/null; then echo yes; else echo no; fi
 
-# Install Discord from RPM Fusion non-free (rpm-ostree layer)
-#
-# The .repo file in /etc/yum.repos.d/ is the single source of truth,
-# flipped `enabled=0` -> `enabled=1` via sed scoped to the main
-# [rpmfusion-nonfree-updates] section — the debuginfo/source sections in
-# the same file stay disabled. The shipped
-# /usr/etc/dnf/repos.override.d/99-config_manager.repo has no
-# [rpmfusion-nonfree-updates] section, so nothing overrides this flip.
-#
-# Known limit: chaining `ujust install-discord` and `ujust
-# install-1password` without a reboot fails on the second with "Packages
-# not found" — rpm-ostree builds the next deployment on top of the first
-# pending and reads /etc from there, so the runtime sed on live /etc is
-# invisible to the second solve. Reboot between recipes.
-[group("apps")]
-install-discord:
-    #!/usr/bin/bash
-    set -eo pipefail
-
-    cat <<'EOF'
-    {{ YELLOW }}This recipe will proceed to {{ BOLD }}layer{{ NORMAL }} {{ YELLOW }}Discord{{ NORMAL }} from RPM Fusion non-free.
-    {{ YELLOW }}If future updates start to fail, run "{{ BOLD }}rpm-ostree reset{{ NORMAL }}{{ YELLOW }}" to drop the layer.{{ NORMAL }}
-    {{ YELLOW }}See https://docs.bazzite.gg/Installing_and_Managing_Software/rpm-ostree/#major-caveats-using-rpm-ostree{{ NORMAL }}
-    EOF
-
-    if [ "$(just _pkg_layered discord)" = "yes" ]; then
-        echo "Discord is already layered, skipping."
-        exit 0
-    fi
-
-    repo_path="/etc/yum.repos.d/rpmfusion-nonfree-updates.repo"
-    if sed -n '/^\[rpmfusion-nonfree-updates\]$/,/^\[/p' "$repo_path" | grep -q '^enabled=1'; then
-        echo 'RPM Fusion non-free updates is already enabled, skipping.'
-    else
-        echo 'Enabling RPM Fusion non-free updates.'
-        sudo sed -i '/^\[rpmfusion-nonfree-updates\]$/,/^\[/ s/^enabled=0/enabled=1/' "$repo_path"
-    fi
-
-    echo 'Installing discord...'
-    sudo rpm-ostree install -y discord
-    echo 'Complete, please reboot to apply changes.'
-
 # Install 1Password from the official 1Password rpm repo (rpm-ostree layer)
 #
-# Same pattern as install-discord. The 1password.repo is vendored under
-# system_files/etc/yum.repos.d/ with `enabled=0` and is the single
-# source of truth — no override section ships in the image.
+# The 1password.repo is vendored under system_files/etc/yum.repos.d/
+# with `enabled=0` and is the single source of truth — no override
+# section ships in the image. The single-section file is flipped
+# enabled=0 -> 1 here with a plain sed.
 #
-# Same Bazzite-inherited limit: do not chain with install-discord without
-# a reboot in between (see install-discord block comment).
+# Bazzite-inherited limit: chaining two rpm-ostree installs without a
+# reboot in between fails on the second with "Packages not found" —
+# rpm-ostree builds the next deployment on top of the first pending one
+# and reads /etc from there, so a runtime sed on live /etc is invisible
+# to the second solve.
 [group("apps")]
 install-1password:
     #!/usr/bin/bash
