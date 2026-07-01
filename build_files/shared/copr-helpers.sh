@@ -29,7 +29,7 @@ copr_install_isolated() {
     # `copr enable` writes a new repo file, `copr disable` then flips enabled=
     # IN PLACE. For a COPR the base image already ships (ublue-os/packages) that
     # lands on a base-image path, whose enabled= value validate-repos.sh enforces
-    # and a deployed host parses: rewrite it onto a fresh inode (gotcha #34).
+    # and a deployed host parses: rewrite it onto a fresh inode (gotcha #40).
     local repo_file="/etc/yum.repos.d/_${repo_id}.repo"
     if [ -f "$repo_file" ]; then
         rewrite_fresh_inode "$repo_file"

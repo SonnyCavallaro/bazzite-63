@@ -7,7 +7,7 @@
 # step modifies in place. Every in-build read answers from warm page cache, so
 # 10-tests-mx.sh passes while the committed layer carries a NUL tail: release
 # 44.20260823 shipped a btree-damaged rpmdb and 44.20260826 a master justfile
-# that killed every ujust at parse time (gotcha #34). This check reads the
+# that killed every ujust at parse time (gotcha #40). This check reads the
 # chunked image, whose read path surfaces the on-disk bytes.
 #
 # Two nets, because they fail differently: a NUL sweep over the mutated text
@@ -51,12 +51,12 @@ REQUIRED=(
     /etc/group
     /etc/dnf/dnf.conf
     /etc/dnf/versionlock.toml
-    /etc/sysctl.d/90-bazzite-mx-forwarding.conf
-    /etc/modules-load.d/90-bazzite-mx-nat.conf
+    /etc/sysctl.d/90-bazzite-63-forwarding.conf
+    /etc/modules-load.d/90-bazzite-63-nat.conf
     /etc/pki/rpm-gpg/1password.asc
     /etc/skel/.config/Code/User/settings.json
-    /usr/lib/modprobe.d/bazzite-mx-kvm.conf
-    /usr/lib/sysusers.d/bazzite-mx-docker.conf
+    /usr/lib/modprobe.d/bazzite-63-kvm.conf
+    /usr/lib/sysusers.d/bazzite-63-docker.conf
     /usr/lib/bootc/install/01-bazzite-mx.toml
     /usr/libexec/bazzite-dx-kvmfr-setup
     /usr/libexec/sunshine-start-vmon
@@ -192,11 +192,11 @@ for field in image-name image-ref image-vendor; do
     grep -q "\"$field\":" /usr/share/ublue-os/image-info.json \
         || fail "image-info.json lost its $field field"
 done
-grep -qE '^VARIANT_ID=bazzite-mx(-nvidia(-open)?)?$' /usr/lib/os-release \
+grep -qxF 'VARIANT_ID=bazzite-63' /usr/lib/os-release \
     || fail "/usr/lib/os-release lost its rewritten VARIANT_ID"
-grep -qE '^Variant=Bazzite-MX( \(NVIDIA( Open)?\))?$' /etc/xdg/kcm-about-distrorc \
+grep -qxF 'Variant=bazzite-63' /etc/xdg/kcm-about-distrorc \
     || fail "/etc/xdg/kcm-about-distrorc lost its rewritten Variant"
-grep -q '^Website=https://github.com/MatrixDJ96/bazzite-mx$' /etc/xdg/kcm-about-distrorc \
+grep -qxF 'Website=https://github.com/SonnyCavallaro/bazzite-63' /etc/xdg/kcm-about-distrorc \
     || fail "/etc/xdg/kcm-about-distrorc lost its rewritten Website"
 echo "image identity ok"
 

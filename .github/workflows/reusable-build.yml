@@ -53,7 +53,7 @@ env:
   PUSH_ENABLED: ${{ github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
 
 concurrency:
-  group: bazzite-mx-reusable-${{ github.ref_name }}
+  group: bazzite-63-reusable-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -62,8 +62,8 @@ jobs:
     # 26.04: the ubuntu-24.04 image (20260816+) carries the 6.17-azure kernel with
     # degraded IO — every rootful buildah commit cost 20-30 min there (measured
     # 2026-09-01: labels 22-30 min, rechunk cleanup commit ~26 min) — and the
-    # copied-up overlay writeback loss (gotcha #34). Upstream bazzite builds on
-    # ubuntu-26.04; the #34 guards stay armed regardless of runner.
+    # copied-up overlay writeback loss (gotcha #40). Upstream bazzite builds on
+    # ubuntu-26.04; the #40 guards stay armed regardless of runner.
     runs-on: ubuntu-26.04
     # 90: on ubuntu-26.04 the sandbox build is ~10 min end-to-end (Build image
     # 500 s, MEASURED run 33508793865, 2026-09-01) and a full main job lands
@@ -310,7 +310,7 @@ jobs:
       # a develop experiment cannot poison what main builds from.
       - name: Prepare cache for saving
         id: cache-save
-        if: env.PUSH_ENABLED == 'true' && matrix.image_name == 'bazzite-mx' && matrix.stream_name == 'stable'
+        if: env.PUSH_ENABLED == 'true' && matrix.image_name == 'bazzite-63' && matrix.stream_name == 'stable'
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -341,7 +341,7 @@ jobs:
       # One flavour suffices — the table covers the shared core; per-flavour
       # kernels come from the ostree.linux labels in changelog.sh.
       - name: Collect package versions
-        if: matrix.image_name == 'bazzite-mx' && env.PUSH_ENABLED == 'true'
+        if: matrix.image_name == 'bazzite-63' && env.PUSH_ENABLED == 'true'
         run: |
           set -euo pipefail
           {
@@ -357,7 +357,7 @@ jobs:
           cat package-versions.txt
 
       - name: Upload package versions
-        if: matrix.image_name == 'bazzite-mx' && env.PUSH_ENABLED == 'true'
+        if: matrix.image_name == 'bazzite-63' && env.PUSH_ENABLED == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: package-versions-${{ matrix.stream_name }}
@@ -509,7 +509,7 @@ jobs:
           # below, negative control included, is the proof.
           # No sudo (same pattern as sign-image.yml): signing by digest talks
           # only to the registry, and sudo-rs -E would drop both the key env
-          # var and REGISTRY_AUTH_FILE (gotcha #37).
+          # var and REGISTRY_AUTH_FILE (gotcha #43).
           cosign sign -y --key env://COSIGN_PRIVATE_KEY \
             --new-bundle-format=false --use-signing-config=false \
             "${IMAGE_FULL}@${DIGEST}"
@@ -604,6 +604,13 @@ jobs:
         with:
           pattern: promote-*-stable
           path: promote
+          # Flat layout, deterministically: with a pattern that matches a SINGLE
+          # artifact (this fork's one-image matrix) the action extracts to path
+          # root, while several matches would each get a subdirectory — so the
+          # nested promote/promote-*-<stream>/promote.env glob upstream relies
+          # on never matches here. merge-multiple pins the flat form for any
+          # artifact count; promote-release-tags.sh globs the flat path.
+          merge-multiple: true
 
       - name: Login to GHCR
         env:
@@ -641,6 +648,8 @@ jobs:
         with:
           pattern: promote-*-testing
           path: promote
+          # Flat layout, deterministically: see the stable job above.
+          merge-multiple: true
 
       - name: Login to GHCR
         env:
@@ -686,7 +695,7 @@ jobs:
       # The freshly created GHCR packages are private until their one-time
       # visibility flip, and even the public ones need no anonymity here:
       # skopeo inspect and cosign verify both read $REGISTRY_AUTH_FILE, so
-      # the verification never depends on package visibility (gotcha #39).
+      # the verification never depends on package visibility (gotcha #45).
       - name: Login to GHCR
         env:
           GH_REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -725,7 +734,7 @@ jobs:
       # The freshly created GHCR packages are private until their one-time
       # visibility flip, and even the public ones need no anonymity here:
       # skopeo inspect and cosign verify both read $REGISTRY_AUTH_FILE, so
-      # the verification never depends on package visibility (gotcha #39).
+      # the verification never depends on package visibility (gotcha #45).
       - name: Login to GHCR
         env:
           GH_REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}

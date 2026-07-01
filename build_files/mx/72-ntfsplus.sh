@@ -21,7 +21,7 @@ install -Dm644 "$SRC" "$DEST"
 depmod "$KVER"
 
 # Type "ntfs" is stolen by the mount.ntfs → mount.ntfs-3g symlinks before the
-# kernel ever sees it (gotcha #26); removing them is what lets fstab, .mount
+# kernel ever sees it (gotcha #32); removing them is what lets fstab, .mount
 # units and `mount -t auto` reach the kernel driver. The ntfs-3g PACKAGE stays
 # (libguestfs-appliance requires it) and `mount -t ntfs-3g` remains the
 # explicit FUSE escape hatch.

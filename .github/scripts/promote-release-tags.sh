@@ -26,7 +26,12 @@ if ! [ "$EXPECTED" -gt 0 ] 2>/dev/null; then
 fi
 
 shopt -s nullglob
-manifests=(promote/promote-*-"${STREAM}"/promote.env)
+# Flat path: the promote jobs download with merge-multiple (this fork's
+# one-image matrix makes download-artifact extract a single match flat, and
+# merge-multiple pins that layout for any count), so the per-flavour
+# subdirectory of the upstream glob never exists here. The pattern already
+# selected this stream's artifacts, and the gate below still counts them.
+manifests=(promote/promote.env)
 echo "Promotion manifests for ${STREAM}: ${#manifests[@]} of ${EXPECTED} expected"
 if [ "${#manifests[@]}" -gt 0 ]; then
   printf ' - %s\n' "${manifests[@]}"

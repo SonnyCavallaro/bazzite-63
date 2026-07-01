@@ -1,11 +1,11 @@
 ---
-description: Run a local podman pre-flight build of bazzite-mx (single flavour, no NVIDIA) before pushing to CI.
+description: Run a local podman pre-flight build of bazzite-63 (single flavour, no NVIDIA) before pushing to CI.
 allowed-tools: Bash(podman build:*), Bash(podman images:*), Bash(podman run --rm:*), Bash(skopeo inspect:*), Bash(jq:*), Bash(grep:*), Bash(./.github/scripts/resolve-kernel-coords.sh:*), Read
 argument-hint: "[base_tag] [--cold-check]"
 ---
 
-Run a local pre-flight build of bazzite-mx for the `bazzite` (non-NVIDIA) flavour. This catches
-issues 5 minutes locally instead of after 15 minutes across 6 CI jobs.
+Run a local pre-flight build of bazzite-63 for the `bazzite` (non-NVIDIA) flavour. This catches
+issues 5 minutes locally instead of after 15 minutes in CI.
 
 Steps:
 1. Resolve the latest stable Bazzite tag (or use $1 if provided as argument), then the akmods
@@ -13,7 +13,7 @@ Steps:
    schema, so a pre-flight builds against the carrier the matrix picks:
    ```bash
    BASE_TAG="${1:-$(skopeo inspect --retry-times 3 --no-tags docker://ghcr.io/ublue-os/bazzite:stable | jq -r '.Labels["org.opencontainers.image.version"]')}"
-   COORDS=/tmp/bazzite-mx-kernel-coords.env
+   COORDS=/tmp/bazzite-63-kernel-coords.env
    : > "$COORDS"
    GITHUB_OUTPUT="$COORDS" ./.github/scripts/resolve-kernel-coords.sh bazzite "$BASE_TAG"
    # shellcheck disable=SC1090
@@ -22,17 +22,17 @@ Steps:
 2. Run `podman build` with --build-args matching `.github/workflows/reusable-build.yml`:
    - `BASE_IMAGE=bazzite`
    - `BASE_TAG=<resolved>`
-   - `IMAGE_NAME=bazzite-mx`
-   - `IMAGE_VENDOR=matrixdj96`
+   - `IMAGE_NAME=bazzite-63`
+   - `IMAGE_VENDOR=sonnycavallaro`
    - `VERSION=<tag>`
    - `UPSTREAM_TAG=<tag>`
    - `KERNEL_VERSION=$kernel_version`
    - `KERNEL_FLAVOR=$kernel_flavor`
    - `FEDORA_VERSION=$fedora_version`
-   - `--tag localhost/bazzite-mx:preflight`
-3. Redirect stdout+stderr to `/tmp/bazzite-mx-preflight.log`.
+   - `--tag localhost/bazzite-63:preflight`
+3. Redirect stdout+stderr to `/tmp/bazzite-63-preflight.log`.
 4. Capture and propagate the build exit code:
-   `BUILD_EXIT=$?; echo "BUILD_EXIT=$BUILD_EXIT" >> /tmp/bazzite-mx-preflight.log; exit $BUILD_EXIT`.
+   `BUILD_EXIT=$?; echo "BUILD_EXIT=$BUILD_EXIT" >> /tmp/bazzite-63-preflight.log; exit $BUILD_EXIT`.
 5. Run as `run_in_background: true` so the harness notifies on completion — do **not** poll
    with sleep loops.
 6. **Optional cold-check stage** — only when the user passes `--cold-check`: after a green
@@ -46,14 +46,14 @@ Steps:
    podman run --rm \
        --env THIRD_PARTY_REPOS="$THIRD_PARTY_REPOS" \
        --volume "$PWD/.github/scripts/check-image-integrity.sh:/tmp/check-image-integrity.sh:ro,Z" \
-       localhost/bazzite-mx:preflight bash /tmp/check-image-integrity.sh
+       localhost/bazzite-63:preflight bash /tmp/check-image-integrity.sh
    ```
    Judge on the exit status; the last line of a clean run is `image integrity ok`.
 
 When the background job finishes, summarize:
-- `grep BUILD_EXIT /tmp/bazzite-mx-preflight.log`
+- `grep BUILD_EXIT /tmp/bazzite-63-preflight.log`
 - Last 20 lines of log (smoke test result, bootc lint summary)
-- `podman images localhost/bazzite-mx:preflight` (image size)
+- `podman images localhost/bazzite-63:preflight` (image size)
 - One-line verdict: ready-to-push / fix-needed (with file:line if the failure is identifiable)
 
 Common failure modes to watch for, in order of frequency:
@@ -66,6 +66,6 @@ Common failure modes to watch for, in order of frequency:
    `curl -sL --range 0-1023 <url>` (HEAD often rejected by CDNs).
 4. **akmods carrier missing**: the resolver aborts with `no akmods tag carries kernel …`
    because upstream published the base image before its akmods carrier. Wait for the carrier
-   (gotcha #32 in `docs/gotchas.md`); nothing in this repo fixes it.
+   (gotcha #38 in `docs/gotchas.md`); nothing in this repo fixes it.
 
-Reference: `AGENTS.md` § Quick command cheatsheet + `docs/gotchas.md`.
+Reference: `AGENTS.md` + `docs/gotchas.md`.
