@@ -173,6 +173,8 @@
   .shield .v.green{background:var(--green)}
   .shield .v.blue{background:var(--blue-l)}
   .shield .v.violet{background:var(--violet-l)}
+  .shield .v.live{padding:0;background:#0e1422}
+  .shield .v.live img{height:20px;display:block}
 
   /* ============ FEATURES ============ */
   .section{padding:76px 0}
@@ -425,7 +427,7 @@
     </div>
 
     <div class="shields">
-      <a class="shield" href="https://github.com/MatrixDJ96/bazzite-mx/actions/workflows/build-stable.yml" target="_blank" rel="noopener"><span class="k">build</span><span class="v green">passing</span></a>
+      <a class="shield" href="https://github.com/MatrixDJ96/bazzite-mx/actions/workflows/build-stable.yml" target="_blank" rel="noopener"><span class="k">build</span><span class="v live"><img src="https://img.shields.io/github/actions/workflow/status/MatrixDJ96/bazzite-mx/build-stable.yml?branch=main&amp;label=&amp;style=flat-square" alt="build status"></span></a>
       <a class="shield" href="https://github.com/ublue-os/bazzite" target="_blank" rel="noopener"><span class="k">base</span><span class="v blue">bazzite</span></a>
       <a class="shield" href="https://kde.org/plasma-desktop/" target="_blank" rel="noopener"><span class="k">desktop</span><span class="v" style="background:#cbd5e1">KDE Plasma</span></a>
       <a class="shield" href="https://github.com/containers/bootc" target="_blank" rel="noopener"><span class="k">atomic</span><span class="v" style="background:#7dd3fc">bootc</span></a>
@@ -525,7 +527,7 @@
 
       <article class="rcard feat" role="listitem">
         <div class="r-head"><span class="r-star">★</span><span class="r-name">MSI fan control</span><span class="r-tag">flagship</span></div>
-        <p class="r-desc">Stock Bazzite can't drive recent MSI EC firmware — this ships the current <code>msi-ec</code> + <code>acpi_ec</code> modules and the MControlCenter GUI.</p>
+        <p class="r-desc">Stock Bazzite can't drive recent MSI EC firmware — this bakes in the current <code>msi-ec</code> + <code>acpi_ec</code> modules; enabling layers the MControlCenter GUI.</p>
         <div class="r-cmd"><span class="prompt">❯</span> <code>ujust <span class="rk">setup-msi</span></code>
           <button class="copy" data-copy="ujust setup-msi" aria-label="Copy command"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
         </div>
