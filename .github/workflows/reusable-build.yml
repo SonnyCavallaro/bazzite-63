@@ -32,7 +32,7 @@ env:
   PUSH_ENABLED: ${{ github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
 
 concurrency:
-  group: bazzite-mx-reusable-${{ inputs.stream_name }}-${{ github.ref_name }}
+  group: bazzite-63-reusable-${{ inputs.stream_name }}-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -44,12 +44,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - image_name: bazzite-mx
+          - image_name: bazzite-63
             base_image: bazzite
-          - image_name: bazzite-mx-nvidia
-            base_image: bazzite-nvidia
-          - image_name: bazzite-mx-nvidia-open
-            base_image: bazzite-nvidia-open
     steps:
       - name: Prepare environment
         env:

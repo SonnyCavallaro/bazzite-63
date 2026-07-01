@@ -52,7 +52,7 @@ EXISTING=$(gh release list --repo "$REPO_FULL" --limit 200 --json tagName -q '.[
 OWNER_LC="${REPO_FULL%%/*}"
 OWNER_LC="${OWNER_LC,,}"
 
-# A tag is taken when a Release exists OR any flavour already carries the GHCR
+# A tag is taken when a Release exists OR the image already carries the GHCR
 # tag (a build whose release step failed): re-picking it would silently repoint
 # an immutable, cosign-signed tag. Fail-closed: a GHCR probe error other than a
 # plain missing image aborts instead of reading as "tag free". The probe
@@ -68,7 +68,7 @@ fi
 taken() {
   echo "$EXISTING" | grep -qx "$1" && return 0
   local img out
-  for img in bazzite-mx bazzite-mx-nvidia bazzite-mx-nvidia-open; do
+  for img in bazzite-63; do
     if out=$(skopeo inspect "${PROBE_CREDS[@]}" --no-tags "docker://ghcr.io/${OWNER_LC}/${img}:$1" 2>&1); then
       return 0
     fi

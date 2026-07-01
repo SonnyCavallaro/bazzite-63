@@ -35,11 +35,11 @@ sed -i "s/^VARIANT_ID=.*/VARIANT_ID=$IMAGE_NAME/" /usr/lib/os-release
 KCM=/etc/xdg/kcm-about-distrorc
 [ -f "$KCM" ] || { echo "FAIL: $KCM not found (Bazzite KDE layout changed?)"; exit 1; }
 case "$IMAGE_NAME" in
-    *nvidia-open) VARIANT="Bazzite-MX (NVIDIA Open)" ;;
-    *nvidia)      VARIANT="Bazzite-MX (NVIDIA)" ;;
-    *)            VARIANT="Bazzite-MX" ;;
+    *nvidia-open) VARIANT="bazzite-63 (NVIDIA Open)" ;;
+    *nvidia)      VARIANT="bazzite-63 (NVIDIA)" ;;
+    *)            VARIANT="bazzite-63" ;;
 esac
-sed -i "s|^Website=.*|Website=https://github.com/MatrixDJ96/bazzite-mx|" "$KCM"
+sed -i "s|^Website=.*|Website=https://github.com/SonnyCavallaro/bazzite-63|" "$KCM"
 sed -i "s/^Variant=.*/Variant=$VARIANT/" "$KCM"
 
 echo "::endgroup::"
