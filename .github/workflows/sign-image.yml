@@ -17,7 +17,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: bazzite-mx-sign-image
+  group: bazzite-63-sign-image
   cancel-in-progress: false
 
 jobs:

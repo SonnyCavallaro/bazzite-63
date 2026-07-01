@@ -37,7 +37,7 @@ for kmod in "${KMODS[@]}"; do
     # Extra make variables, empty for most modules. A module whose kbuild fragment
     # is gated on a kernel config symbol (`obj-$(CONFIG_X) += foo.o`) builds NOTHING
     # and still exits 0 when the target kernel leaves that symbol unset — ntfsplus
-    # forces CONFIG_NTFS_FS=m here (gotcha #25).
+    # forces CONFIG_NTFS_FS=m here (gotcha #31).
     read -r -a ko_build_args <<< "${KO_BUILD_ARGS:-}"
     src="/tmp/build-${kmod}"
     git clone "$URL" "$src"
@@ -61,7 +61,7 @@ for kmod in "${KMODS[@]}"; do
     vermagic=$(modinfo -F vermagic "$staged")
     case "$vermagic" in
         "${KERNEL_VERSION} "*) ;;
-        *) echo "FAIL: ${KO_NAME} vermagic '${vermagic}' does not match target kernel ${KERNEL_VERSION} (gotcha #33)"; exit 1 ;;
+        *) echo "FAIL: ${KO_NAME} vermagic '${vermagic}' does not match target kernel ${KERNEL_VERSION} (gotcha #39)"; exit 1 ;;
     esac
 done
 

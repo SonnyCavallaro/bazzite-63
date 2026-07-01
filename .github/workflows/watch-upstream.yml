@@ -8,7 +8,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: bazzite-mx-watch-upstream
+  group: bazzite-63-watch-upstream
   cancel-in-progress: false
 
 jobs:
@@ -33,7 +33,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       # The staleness probe reads our own images through $REGISTRY_AUTH_FILE,
-      # so a private package reads as "current", never as a 401 (gotcha #39).
+      # so a private package reads as "current", never as a 401 (gotcha #45).
       - name: Login to GHCR
         env:
           GH_REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}

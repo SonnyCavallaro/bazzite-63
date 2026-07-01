@@ -37,7 +37,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: bazzite-mx-release-${{ inputs.stream_name }}-${{ inputs.upstream_tag }}
+  group: bazzite-63-release-${{ inputs.stream_name }}-${{ inputs.upstream_tag }}
   cancel-in-progress: false
 
 jobs:
@@ -59,7 +59,7 @@ jobs:
 
       # Every skopeo read below (recovery candidates, digest pinning, the
       # changelog's kernel lookup) goes through $REGISTRY_AUTH_FILE, so the
-      # release never depends on package visibility (gotcha #39).
+      # release never depends on package visibility (gotcha #45).
       - name: Login to GHCR
         env:
           GH_REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}

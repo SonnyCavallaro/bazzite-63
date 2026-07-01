@@ -33,8 +33,8 @@ RUN --mount=type=bind,from=ctx,source=/build_files,target=/ctx/build_files \
 FROM ghcr.io/ublue-os/${BASE_IMAGE}:${BASE_TAG}
 
 ARG BASE_IMAGE
-ARG IMAGE_NAME=bazzite-mx
-ARG IMAGE_VENDOR=matrixdj96
+ARG IMAGE_NAME=bazzite-63
+ARG IMAGE_VENDOR=sonnycavallaro
 ARG VERSION=
 ARG UPSTREAM_DIGEST=
 ARG UPSTREAM_TAG=

@@ -1,5 +1,5 @@
 #!/usr/bin/bash
-# bazzite-mx system-setup hook: append docker/libvirt groups and grant
+# bazzite-63 system-setup hook: append docker/libvirt groups and grant
 # them to wheel users on first boot.
 #
 # Runs from /usr/libexec/ublue-system-setup as root (after rpm-ostreed,
@@ -10,7 +10,7 @@
 #
 # Bumping the third arg of `version-script` re-runs the hook on every
 # user the next time the system boots (e.g. when TARGET_GROUPS changes).
-# The docker group is created early by /usr/lib/sysusers.d/bazzite-mx-
+# The docker group is created early by /usr/lib/sysusers.d/bazzite-63-
 # docker.conf via systemd-sysusers, so usermod -aG docker succeeds here.
 
 set -euo pipefail
@@ -18,7 +18,7 @@ set -euo pipefail
 # shellcheck disable=SC1091
 source /usr/lib/ublue/setup-services/libsetup.sh
 
-version-script bazzite-mx-groups system 2 || exit 0
+version-script bazzite-63-groups system 2 || exit 0
 
 # Append a group from /usr/lib/group (vendor) into /etc/group (mutable)
 # if it isn't already there. Required because atomic distros only seed
@@ -75,8 +75,8 @@ done
 if [ "${#MISSING_GROUPS[@]}" -gt 0 ]; then
     echo "ERROR: group(s) ${MISSING_GROUPS[*]} exist in neither /etc/group nor /usr/lib/group;" >&2
     echo "       no wheel user was added to them. Check their /usr/lib/sysusers.d entry" >&2
-    echo "       (docker: bazzite-mx-docker.conf, libvirt: libvirt's own libvirt.conf)." >&2
+    echo "       (docker: bazzite-63-docker.conf, libvirt: libvirt's own libvirt.conf)." >&2
     exit 1
 fi
 
-echo "bazzite-mx-groups system-setup hook complete."
+echo "bazzite-63-groups system-setup hook complete."

@@ -110,7 +110,7 @@ done
 # Both writes above land in place on base-image files: the master takes an
 # append, the three override files a `cat tmp > file`. Release 44.20260826
 # shipped the master with a NUL tail that killed every ujust at parse time
-# (gotcha #34); rewrite_fresh_inode is what survives the layer commit —
+# (gotcha #40); rewrite_fresh_inode is what survives the layer commit —
 # class and idiom table: docs/conventions.md § Writing base-image files.
 # Shaped after the downstream report from SonnyCavallaro/bazzite-63 (commit
 # 5a5b8b2), extended from the master alone to all four written files.

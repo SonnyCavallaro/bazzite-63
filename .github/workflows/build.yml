@@ -1,4 +1,4 @@
-name: Build Bazzite-MX
+name: Build Bazzite-63
 
 on:
   push:
@@ -67,7 +67,7 @@ permissions: {}
 # convention 8). Watch Upstream keeps its own group, so its trigger queues
 # behind an in-flight push run on this ref instead of racing it.
 concurrency:
-  group: bazzite-mx-build-${{ github.ref_name }}
+  group: bazzite-63-build-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:

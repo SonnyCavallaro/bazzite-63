@@ -6,7 +6,7 @@
 # stays green. The rule: a script whose last write to a base-image file is
 # in place calls rewrite_fresh_inode on it before it exits. Full class,
 # measured idiom table and production hits: docs/conventions.md
-# § "Writing base-image files" and gotcha #34.
+# § "Writing base-image files" and gotcha #40.
 set -euo pipefail
 
 # rewrite_fresh_inode FILE... — copy each file onto a brand-new inode,

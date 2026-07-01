@@ -29,7 +29,7 @@ grep -q '^deny org\.virt_manager\.virt-manager/\*$' "$BLOCKLIST" \
     || echo "deny org.virt_manager.virt-manager/*" >> "$BLOCKLIST"
 
 # The append lands in place on a base-image file, the shape that shipped the
-# master justfile with a NUL tail in 44.20260826 (gotcha #34): rewrite the
+# master justfile with a NUL tail in 44.20260826 (gotcha #40): rewrite the
 # blocklist onto a fresh inode so the appended line survives the layer commit.
 rewrite_fresh_inode "$BLOCKLIST"
 
