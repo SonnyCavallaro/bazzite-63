@@ -67,7 +67,7 @@ if [ "${1:-}" = "--self-test" ]; then
     self_test_expect "module index (§7)" "does not resolve through the cold module index" \
         ": > '$KDIR/modules.dep.bin' && sed -i '/msi-ec/d' '$KDIR/modules.dep'"
     self_test_expect "flatpak lists (§6)" "flatpak-blocklist lost its deny line" \
-        "sed -i '/org.mozilla.firefox/d' /usr/share/ublue-os/flatpak-blocklist"
+        "sed -i '/org.virt_manager.virt-manager/d' /usr/share/ublue-os/flatpak-blocklist"
     self_test_expect "image identity (§5)" "lost its rewritten VARIANT_ID" \
         "sed -i 's/^VARIANT_ID=.*/VARIANT_ID=bazzite/' /usr/lib/os-release"
     self_test_expect "justfile tree (§4)" "missing from the parsed justfile tree" \
@@ -259,17 +259,13 @@ grep -qxF 'Website=https://github.com/SonnyCavallaro/bazzite-63' /etc/xdg/kcm-ab
     || fail "/etc/xdg/kcm-about-distrorc lost its rewritten Website"
 echo "image identity ok"
 
-# --- 6. flatpak lists (21- and 62-*-flatpak-exclude.sh) ---
+# --- 6. flatpak lists (21-virt-manager-flatpak-exclude.sh) ---
 #
-# Both deny lines are appends onto a base-image file — the shape that tore the
-# master justfile — and the install-list line is a sed deletion.
-for app in org.virt_manager.virt-manager org.mozilla.firefox; do
-    grep -qxF "deny $app/*" /usr/share/ublue-os/flatpak-blocklist \
-        || fail "flatpak-blocklist lost its deny line for $app"
-done
-if grep -qx 'org.mozilla.firefox' /usr/share/ublue-os/bazzite/flatpak/install; then
-    fail "the flatpak install list carries org.mozilla.firefox again"
-fi
+# The deny line is an append onto a base-image file — the shape that tore the
+# master justfile. Firefox stays the base Bazzite Flatpak on this image: no
+# firefox deny line, and the install list keeps its firefox entry.
+grep -qxF 'deny org.virt_manager.virt-manager/*' /usr/share/ublue-os/flatpak-blocklist \
+    || fail "flatpak-blocklist lost its deny line for org.virt_manager.virt-manager"
 echo "flatpak lists ok"
 
 # --- 7. module index (70/71/72 install + depmod) ---

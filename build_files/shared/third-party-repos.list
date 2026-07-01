@@ -16,7 +16,6 @@ negativo17-fedora-multimedia.repo
 tailscale.repo
 vscode.repo
 docker-ce.repo
-mozilla.repo
 1password.repo
 teackot-msi.repo
 fedora-cisco-openh264.repo
