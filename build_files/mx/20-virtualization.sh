@@ -18,10 +18,16 @@ source /ctx/build_files/shared/copr-helpers.sh
 ### Section 1: Virtualization core (libvirt + QEMU + tools) ###
 # edk2-ovmf is already in the Bazzite base; listed here so the smoke
 # test asserts it.
+# Explicit qemu package list: the virt stack itself needs only x86
+# system emulation plus user-mode binfmt (qemu-user-static) for
+# foreign-arch containers. The `qemu` metapackage (and with it every
+# qemu-system-<arch> emulator) still lands in the image as a hard rpm
+# dependency of podman-bootc (10-container-runtime.sh) — deliberately
+# not requested here, so it disappears on its own if that dependency
+# is ever dropped upstream.
 dnf5 install -y \
     libvirt \
     libvirt-nss \
-    qemu \
     qemu-img \
     qemu-kvm \
     qemu-system-x86-core \

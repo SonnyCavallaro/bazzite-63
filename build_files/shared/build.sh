@@ -8,9 +8,12 @@ set -euxo pipefail
 
 CTX="${CTX:-/ctx}"
 
-# Source helper functions
-# shellcheck disable=SC1091
-source "$CTX/build_files/shared/copr-helpers.sh"
+# Network resilience for every dnf5 call in this stage: raise the
+# per-connection timeout from the 30s default — COPR/mirror flakes are the
+# most common CI build failure (pattern from Aurora upstream).
+# clean-stage.sh restores the original dnf.conf.
+cp /etc/dnf/dnf.conf /tmp/dnf.conf.orig
+dnf5 config-manager setopt timeout=60
 
 # 1. Copy system_files
 if [ -d "$CTX/system_files" ]; then

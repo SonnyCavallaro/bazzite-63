@@ -74,7 +74,7 @@ done
 # --- Phase 4: Virtualization packages ---
 VIRT_RPMS=(
     libvirt libvirt-nss
-    qemu qemu-img qemu-kvm qemu-system-x86-core
+    qemu-img qemu-kvm qemu-system-x86-core
     qemu-char-spice qemu-device-display-virtio-gpu
     qemu-device-display-virtio-vga qemu-device-usb-redirect
     qemu-user-binfmt qemu-user-static
@@ -499,6 +499,17 @@ fi
 # the GUI install is folded into setup-msi (no standalone install-mcontrolcenter)
 grep -q 'rpm-ostree install -y mcontrolcenter' "$MX_JUSTFILE" || {
     echo "FAIL: setup-msi no longer layers mcontrolcenter in $MX_JUSTFILE"
+    exit 1
+}
+
+# --- Phase 19: bootc install defaults (root-fs-type) ---
+BOOTC_INSTALL_FILE=/usr/lib/bootc/install/01-bazzite-mx.toml
+if [ ! -f "$BOOTC_INSTALL_FILE" ]; then
+    echo "FAIL: $BOOTC_INSTALL_FILE missing"
+    exit 1
+fi
+grep -qF 'root-fs-type = "btrfs"' "$BOOTC_INSTALL_FILE" || {
+    echo "FAIL: $BOOTC_INSTALL_FILE does not set root-fs-type=btrfs"
     exit 1
 }
 

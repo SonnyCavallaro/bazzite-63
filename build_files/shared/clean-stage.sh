@@ -5,8 +5,10 @@ echo "::group:: ===$(basename "$0")==="
 
 set -eoux pipefail
 
-# Revert dnf cache to default
-dnf5 config-manager setopt keepcache=0 || true
+# Restore the pristine dnf.conf (build.sh raises the dnf timeout for the stage)
+if [ -f /tmp/dnf.conf.orig ]; then
+    mv /tmp/dnf.conf.orig /etc/dnf/dnf.conf
+fi
 
 # Clear any versionlock entries (idempotent)
 dnf5 versionlock clear 2>/dev/null || true
@@ -17,11 +19,9 @@ if [ -f /usr/lib/systemd/system/flatpak-add-fedora-repos.service ]; then
     rm -f /usr/lib/systemd/system/flatpak-add-fedora-repos.service
 fi
 
-# Strip stray .gitkeep markers
-rm -f /.gitkeep
-
-# Selective /var cleanup (preserve cache; cache dir is bind-mounted at build time)
-find /var/* -maxdepth 0 -type d ! -name cache -exec rm -fr {} \;
+# Selective /var cleanup (preserve cache and log: both are cache mounts
+# in the final RUN, so they are mountpoints rm cannot remove)
+find /var/* -maxdepth 0 -type d ! -name cache ! -name log -exec rm -fr {} \;
 rm -rf /tmp/*
 mkdir -p /var/tmp
 

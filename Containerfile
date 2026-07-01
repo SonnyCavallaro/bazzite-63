@@ -18,9 +18,11 @@ FROM ghcr.io/ublue-os/akmods:${KERNEL_FLAVOR}-${FEDORA_VERSION}-${KERNEL_VERSION
 
 # kmod-builder: executable base that compiles out-of-tree modules against the
 # matched kernel-devel, emitting staged .ko.xz under /out for the final stage.
+# Only build_files is mounted: system_files edits must not invalidate the
+# BuildKit cache of this stage (kmod compilation is its most expensive step).
 FROM ghcr.io/ublue-os/${BASE_IMAGE}:${BASE_TAG} AS kmod-builder
 ARG KERNEL_VERSION
-RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+RUN --mount=type=bind,from=ctx,source=/build_files,target=/ctx/build_files \
     --mount=type=bind,from=akmods-rpms,source=/kernel-rpms,target=/run/kernel-rpms \
     --mount=type=cache,dst=/var/cache \
     --mount=type=tmpfs,dst=/tmp \
