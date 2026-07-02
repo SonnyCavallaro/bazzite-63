@@ -1,0 +1,95 @@
+name: Watch Upstream
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: bazzite-mx-watch-upstream
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Detect upstream change
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      stable_changed: ${{ steps.compare.outputs.stable_changed }}
+      testing_changed: ${{ steps.compare.outputs.testing_changed }}
+      stable_tag: ${{ steps.compare.outputs.stable_tag }}
+      testing_tag: ${{ steps.compare.outputs.testing_tag }}
+    steps:
+      - name: Diff upstream tags
+        id: compare
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+
+          STABLE=$(gh release view --repo ublue-os/bazzite --json tagName -q .tagName)
+          TESTING=$(gh release list --repo ublue-os/bazzite --json tagName,publishedAt --limit 50 \
+            | jq -r '[.[] | select(.tagName|startswith("testing-"))] | sort_by(.publishedAt) | last | .tagName')
+
+          OWNER_LC=$(echo "$REPO_OWNER" | tr '[:upper:]' '[:lower:]')
+
+          # All three flavours track the same upstream tag (only BASE_IMAGE
+          # differs), so a stream is stale when ANY image's recorded base tag
+          # diverges from the latest upstream tag.
+          IMAGES="bazzite-mx bazzite-mx-nvidia bazzite-mx-nvidia-open"
+
+          read_current_tag() {
+            local image=$1 stream=$2
+            skopeo inspect --no-tags "docker://ghcr.io/${OWNER_LC}/${image}:${stream}" 2>/dev/null \
+              | jq -r '.Labels["org.opencontainers.image.base.name"] // ""' \
+              | awk -F: 'NF>1 {print $NF}'
+          }
+
+          stream_changed() {
+            local stream=$1 latest=$2 image current changed=false
+            for image in $IMAGES; do
+              current=$(read_current_tag "$image" "$stream" || true)
+              echo "  ${image}:${stream} built on: ${current:-<none>}" >&2
+              if [ "$latest" != "$current" ]; then changed=true; fi
+            done
+            echo "$changed"
+          }
+
+          echo "Latest upstream: stable=$STABLE  testing=$TESTING"
+          STABLE_CHANGED=$(stream_changed stable "$STABLE")
+          TESTING_CHANGED=$(stream_changed testing "$TESTING")
+          echo "stable_changed=$STABLE_CHANGED  testing_changed=$TESTING_CHANGED"
+
+          {
+            echo "stable_tag=$STABLE"
+            echo "testing_tag=$TESTING"
+            echo "stable_changed=$STABLE_CHANGED"
+            echo "testing_changed=$TESTING_CHANGED"
+          } >> "$GITHUB_OUTPUT"
+
+  trigger-stable:
+    name: Trigger stable build + release
+    needs: check
+    if: needs.check.outputs.stable_changed == 'true'
+    uses: ./.github/workflows/build-stable.yml
+    secrets: inherit
+    permissions:
+      contents: write
+      packages: write
+    with:
+      upstream_tag: ${{ needs.check.outputs.stable_tag }}
+
+  trigger-testing:
+    name: Trigger testing build + pre-release
+    needs: check
+    if: needs.check.outputs.testing_changed == 'true'
+    uses: ./.github/workflows/build-testing.yml
+    secrets: inherit
+    permissions:
+      contents: write
+      packages: write
+    with:
+      upstream_tag: ${{ needs.check.outputs.testing_tag }}

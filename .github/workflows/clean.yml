@@ -1,0 +1,36 @@
+name: Cleanup GHCR
+
+on:
+  schedule:
+    - cron: '15 0 * * 0' # 0015 UTC on Sundays
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Preview deletions only"
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: bazzite-mx-clean
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    name: Prune old GHCR tags
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      packages: write
+    steps:
+      - name: Prune old tags and orphaned layers
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          packages: bazzite-mx,bazzite-mx-nvidia,bazzite-mx-nvidia-open
+          older-than: 90 days
+          delete-orphaned-images: true
+          keep-n-tagged: 7
+          keep-n-untagged: 7
+          dry-run: ${{ inputs.dry_run || false }}

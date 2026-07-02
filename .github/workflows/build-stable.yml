@@ -1,0 +1,119 @@
+name: Build Stable
+
+on:
+  push:
+    branches: [main, develop]
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - "docs/**"
+      - "site/**"
+      - ".github/workflows/deploy-pages.yml"
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - "docs/**"
+      - "site/**"
+      - ".github/workflows/deploy-pages.yml"
+  workflow_dispatch:
+    inputs:
+      upstream_tag:
+        description: "Override upstream release tag (leave empty for latest)"
+        required: false
+        type: string
+        default: ""
+  workflow_call:
+    inputs:
+      upstream_tag:
+        description: "Override upstream release tag (leave empty for latest)"
+        required: false
+        type: string
+        default: ""
+
+permissions: {}
+
+concurrency:
+  group: bazzite-mx-stable-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve release tag
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      upstream_tag: ${{ steps.compute.outputs.upstream_tag }}
+      release_tag: ${{ steps.compute.outputs.release_tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Compute upstream + release tag
+        id: compute
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_UPSTREAM_TAG: ${{ inputs.upstream_tag }}
+          REPO_FULL: ${{ github.repository }}
+        # Tag schema and collision detection live in the shared resolver
+        # (single owner of the [testing-]MAJOR.<build date>[.N] schema).
+        run: ./.github/scripts/resolve-release-tag.sh stable "$INPUT_UPSTREAM_TAG"
+
+  validate-just:
+    name: Validate just syntax
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Install just
+        run: |
+          set -euo pipefail
+          /home/linuxbrew/.linuxbrew/bin/brew install just
+          echo "/home/linuxbrew/.linuxbrew/bin" >> "$GITHUB_PATH"
+      - name: Check just syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail=0
+          for f in system_files/usr/share/ublue-os/just/*.just; do
+            echo "::group::$f"
+            if ! just --justfile "$f" --list >/dev/null; then
+              echo "::error file=$f::just parse error"
+              fail=1
+            fi
+            echo "::endgroup::"
+          done
+          exit "$fail"
+
+  build:
+    name: Build stable matrix
+    needs: [resolve, validate-just]
+    if: ${{ !cancelled() && needs.validate-just.result == 'success' && (needs.resolve.result == 'success' || needs.resolve.result == 'skipped') }}
+    uses: ./.github/workflows/reusable-build.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      packages: write
+    with:
+      stream_name: stable
+      upstream_tag: ${{ needs.resolve.outputs.upstream_tag || '' }}
+      release_tag: ${{ needs.resolve.outputs.release_tag || '' }}
+
+  release:
+    name: Publish stable release
+    needs: [resolve, build]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && needs.build.result == 'success' && needs.resolve.result == 'success'
+    uses: ./.github/workflows/generate-release.yml
+    permissions:
+      contents: write
+      packages: read
+    with:
+      stream_name: stable
+      upstream_tag: ${{ needs.resolve.outputs.upstream_tag }}
+      release_tag: ${{ needs.resolve.outputs.release_tag }}
