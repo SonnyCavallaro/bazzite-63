@@ -1,5 +1,5 @@
 #!/usr/bin/bash
-# MX smoke tests. Runs after the build orchestrator, immediately before
+# bazzite-63 smoke tests. Runs after the build orchestrator, immediately before
 # bootc container lint. Blocking: every assertion exits 1 on failure.
 #
 # Each domain script in build_files/mx/ extends this file with rpm-q +
@@ -11,44 +11,44 @@ echo "::group:: ===$(basename "$0")==="
 set -euxo pipefail
 
 # --- IP forwarding sysctl marker ---
-if [ ! -f /etc/sysctl.d/90-bazzite-mx-forwarding.conf ]; then
-    echo "FAIL: missing /etc/sysctl.d/90-bazzite-mx-forwarding.conf"
+if [ ! -f /etc/sysctl.d/90-bazzite-63-forwarding.conf ]; then
+    echo "FAIL: missing /etc/sysctl.d/90-bazzite-63-forwarding.conf"
     exit 1
 fi
 
 # --- iptable_nat modules-load marker ---
-if [ ! -f /etc/modules-load.d/90-bazzite-mx-nat.conf ]; then
-    echo "FAIL: missing /etc/modules-load.d/90-bazzite-mx-nat.conf"
+if [ ! -f /etc/modules-load.d/90-bazzite-63-nat.conf ]; then
+    echo "FAIL: missing /etc/modules-load.d/90-bazzite-63-nat.conf"
     exit 1
 fi
 
 # --- Image identity + KDE about-page branding (00-image-info.sh) ---
-grep -qE '"image-name":[[:space:]]*"bazzite-mx(-nvidia(-open)?)?"' /usr/share/ublue-os/image-info.json || {
+grep -qE '"image-name":[[:space:]]*"bazzite-63(-nvidia(-open)?)?"' /usr/share/ublue-os/image-info.json || {
     echo "FAIL: /usr/share/ublue-os/image-info.json image-name not rewritten"
     cat /usr/share/ublue-os/image-info.json
     exit 1
 }
-grep -qE '"image-vendor":[[:space:]]*"matrixdj96"' /usr/share/ublue-os/image-info.json || {
-    echo "FAIL: /usr/share/ublue-os/image-info.json image-vendor not rewritten to matrixdj96"
+grep -qE '"image-vendor":[[:space:]]*"sonnycavallaro"' /usr/share/ublue-os/image-info.json || {
+    echo "FAIL: /usr/share/ublue-os/image-info.json image-vendor not rewritten to sonnycavallaro"
     grep image-vendor /usr/share/ublue-os/image-info.json || true
     exit 1
 }
-grep -qE '"image-ref":[[:space:]]*"ostree-image-signed:docker://ghcr.io/matrixdj96/bazzite-mx(-nvidia(-open)?)?"' /usr/share/ublue-os/image-info.json || {
+grep -qE '"image-ref":[[:space:]]*"ostree-image-signed:docker://ghcr.io/sonnycavallaro/bazzite-63(-nvidia(-open)?)?"' /usr/share/ublue-os/image-info.json || {
     echo "FAIL: /usr/share/ublue-os/image-info.json image-ref not rewritten"
     grep image-ref /usr/share/ublue-os/image-info.json || true
     exit 1
 }
-grep -qE '^VARIANT_ID=bazzite-mx(-nvidia(-open)?)?$' /usr/lib/os-release || {
+grep -qE '^VARIANT_ID=bazzite-63(-nvidia(-open)?)?$' /usr/lib/os-release || {
     echo "FAIL: /usr/lib/os-release VARIANT_ID not rewritten"
     grep ^VARIANT_ID= /usr/lib/os-release || true
     exit 1
 }
-grep -qE '^Variant=Bazzite-MX( \(NVIDIA( Open)?\))?$' /etc/xdg/kcm-about-distrorc || {
+grep -qE '^Variant=bazzite-63( \(NVIDIA( Open)?\))?$' /etc/xdg/kcm-about-distrorc || {
     echo "FAIL: /etc/xdg/kcm-about-distrorc Variant not rewritten or malformed"
     grep ^Variant= /etc/xdg/kcm-about-distrorc || true
     exit 1
 }
-grep -q '^Website=https://github.com/MatrixDJ96/bazzite-mx$' /etc/xdg/kcm-about-distrorc || {
+grep -q '^Website=https://github.com/SonnyCavallaro/bazzite-63$' /etc/xdg/kcm-about-distrorc || {
     echo "FAIL: /etc/xdg/kcm-about-distrorc Website not rewritten"
     grep ^Website= /etc/xdg/kcm-about-distrorc || true
     exit 1
@@ -125,7 +125,7 @@ done
 # any deployment kind. A bootc kargs.d TOML reaches only bootc-managed
 # deployments (rpm-ostree never reads /usr/lib/bootc/kargs.d), so the
 # modprobe.d file is the single source of the KVM tuning.
-KVM_MODPROBE_FILE=/usr/lib/modprobe.d/bazzite-mx-kvm.conf
+KVM_MODPROBE_FILE=/usr/lib/modprobe.d/bazzite-63-kvm.conf
 if [ ! -f "$KVM_MODPROBE_FILE" ]; then
     echo "FAIL: $KVM_MODPROBE_FILE missing"
     exit 1
@@ -134,7 +134,7 @@ grep -qE '^options kvm ignore_msrs=1 report_ignored_msrs=0$' "$KVM_MODPROBE_FILE
     echo "FAIL: $KVM_MODPROBE_FILE missing 'options kvm ignore_msrs=1 report_ignored_msrs=0'"
     exit 1
 }
-if [ -e /usr/lib/bootc/kargs.d/01-bazzite-mx-virt.toml ]; then
+if [ -e /usr/lib/bootc/kargs.d/01-bazzite-63-virt.toml ]; then
     echo "FAIL: stale KVM kargs.d TOML shipped alongside the modprobe.d options"
     exit 1
 fi
@@ -170,7 +170,7 @@ if grep -qE '^[[:space:]]*flatpak install.*org\.virt_manager\.virt-manager' "$OV
     exit 1
 fi
 # Three idioms a re-sync from bazzite-dx would silently reintroduce, each one a
-# revert that reports success while leaving state behind (gotchas #29, #30, #31).
+# revert that reports success while leaving state behind (gotchas #35, #36, #37).
 # The recipe's comments quote those idioms on purpose, so the assertions read the
 # code lines only.
 OVERRIDE_CODE=$(grep -vE '^[[:space:]]*#' "$OVERRIDE_JUSTFILE")
@@ -269,52 +269,6 @@ for b in "${CLI_BINARIES[@]}"; do
     [ -x "/usr/bin/$b" ] || { echo "FAIL: /usr/bin/$b missing or not executable"; exit 1; }
 done
 
-# --- Phase 7: Firefox from Mozilla's official RPM repo ---
-# The build replaces Bazzite's Flathub flatpak with the Mozilla RPM
-# (61-firefox-rpm.sh). Assertions:
-#  - firefox + firefox-l10n-it installed
-#  - VENDOR = "Mozilla" (guard against regression to the Fedora rpm
-#    or accidental layer of the flatpak's bin/firefox)
-FIREFOX_RPMS=( firefox firefox-l10n-it )
-for p in "${FIREFOX_RPMS[@]}"; do
-    rpm -q "$p" >/dev/null || { echo "FAIL: rpm $p missing"; exit 1; }
-done
-firefox_vendor=$(rpm -q --qf '%{VENDOR}\n' firefox 2>/dev/null)
-if [ "$firefox_vendor" != "Mozilla" ]; then
-    echo "FAIL: firefox VENDOR is '$firefox_vendor' (expected 'Mozilla')"
-    exit 1
-fi
-
-# --- Phase 7: Firefox flatpak exclusion ---
-INSTALL_LIST=/usr/share/ublue-os/bazzite/flatpak/install
-BLOCKLIST=/usr/share/ublue-os/flatpak-blocklist
-if [ -f "$INSTALL_LIST" ] && grep -qx "org.mozilla.firefox" "$INSTALL_LIST"; then
-    echo "FAIL: $INSTALL_LIST still contains org.mozilla.firefox"
-    exit 1
-fi
-grep -q '^deny org\.mozilla\.firefox/\*$' "$BLOCKLIST" || {
-    echo "FAIL: $BLOCKLIST missing firefox deny line"
-    exit 1
-}
-
-# --- Phase 7: Firefox cleanup hooks (system + user) ---
-FIREFOX_HOOK_SYS=/usr/share/ublue-os/system-setup.hooks.d/15-bazzite-mx-firefox-flatpak-cleanup.sh
-FIREFOX_HOOK_USER=/usr/share/ublue-os/user-setup.hooks.d/15-bazzite-mx-firefox-flatpak-cleanup.sh
-if [ ! -x "$FIREFOX_HOOK_SYS" ]; then
-    echo "FAIL: $FIREFOX_HOOK_SYS missing or not executable"
-    exit 1
-fi
-if [ ! -x "$FIREFOX_HOOK_USER" ]; then
-    echo "FAIL: $FIREFOX_HOOK_USER missing or not executable"
-    exit 1
-fi
-for hook in "$FIREFOX_HOOK_SYS" "$FIREFOX_HOOK_USER"; do
-    grep -qE '^flatpak uninstall .*org\.mozilla\.firefox' "$hook" || {
-        echo "FAIL: $hook does not uninstall org.mozilla.firefox"
-        exit 1
-    }
-done
-
 # --- Phase 8: 1Password vendored repo + GPG key fetched at build ---
 ONEPW_REPO=/etc/yum.repos.d/1password.repo
 ONEPW_GPGKEY=/etc/pki/rpm-gpg/1password.asc
@@ -358,8 +312,8 @@ if [ "$user_setup_state" != "enabled" ]; then
     exit 1
 fi
 
-# --- Phase 9: bazzite-mx-groups system-setup hook (v2) ---
-GROUPS_HOOK=/usr/share/ublue-os/system-setup.hooks.d/10-bazzite-mx-groups.sh
+# --- Phase 9: bazzite-63-groups system-setup hook (v2) ---
+GROUPS_HOOK=/usr/share/ublue-os/system-setup.hooks.d/10-bazzite-63-groups.sh
 if [ ! -x "$GROUPS_HOOK" ]; then
     echo "FAIL: $GROUPS_HOOK missing or not executable"
     exit 1
@@ -368,7 +322,7 @@ if [ ! -f /usr/lib/ublue/setup-services/libsetup.sh ]; then
     echo "FAIL: /usr/lib/ublue/setup-services/libsetup.sh missing"
     exit 1
 fi
-grep -qE '^version-script bazzite-mx-groups system 2[[:space:]]' "$GROUPS_HOOK" || {
+grep -qE '^version-script bazzite-63-groups system 2[[:space:]]' "$GROUPS_HOOK" || {
     echo "FAIL: $GROUPS_HOOK is not at version 2 (regression on docker-group fix)"
     exit 1
 }
@@ -422,7 +376,7 @@ for g in docker libvirt; do
 done
 
 # --- Phase 9: docker group via sysusers.d (compensates rpm-ostree scriptlet suppression) ---
-DOCKER_SYSUSERS=/usr/lib/sysusers.d/bazzite-mx-docker.conf
+DOCKER_SYSUSERS=/usr/lib/sysusers.d/bazzite-63-docker.conf
 if [ ! -f "$DOCKER_SYSUSERS" ]; then
     echo "FAIL: $DOCKER_SYSUSERS missing (docker-ce group gap not patched)"
     exit 1
@@ -480,6 +434,23 @@ if [ -n "$UNREADABLE_JUST" ]; then
     echo "$UNREADABLE_JUST"
     exit 1
 fi
+
+# --- bazzite-63: companion justfile (96) shipped + import wired ---
+B63_JUSTFILE=/usr/share/ublue-os/just/96-bazzite-63.just
+if [ ! -f "$B63_JUSTFILE" ]; then
+    echo "FAIL: $B63_JUSTFILE missing"
+    exit 1
+fi
+for recipe in setup-dev install-winboat install-rider install-sap-gui install-ibm-acs setup-m365-pwa b63-status bazzite-63-setup install-default-flatpaks; do
+    grep -q "^${recipe}" "$B63_JUSTFILE" || {
+        echo "FAIL: ${recipe} recipe not found in $B63_JUSTFILE"
+        exit 1
+    }
+done
+grep -q "import \"/usr/share/ublue-os/just/96-bazzite-63.just\"" /usr/share/ublue-os/justfile || {
+    echo "FAIL: import line for 96-bazzite-63.just missing from master justfile"
+    exit 1
+}
 
 # --- Phase 11: Desktop apps (gparted + ptyxis) ---
 DESKTOP_RPMS=( gparted ptyxis )
@@ -617,7 +588,7 @@ done
 # would kill the script with no FAIL line at all; `|| true` keeps the printed
 # value, and the string compare treats an empty reading (unreadable file) as a
 # failure rather than crashing on an integer test.
-nsupp=$(grep -c "is not supported on bazzite-mx" "$OVERRIDE_JUSTFILE" || true)
+nsupp=$(grep -c "is not supported on bazzite-63" "$OVERRIDE_JUSTFILE" || true)
 [ "${nsupp:-}" = "2" ] || {
     echo "FAIL: $OVERRIDE_JUSTFILE carries '${nsupp:-<no reading>}' unsupported-option branches (expected 2)"
     exit 1
@@ -777,7 +748,7 @@ case "$ntfs_path" in
 esac
 # the module must declare the fs-ntfs alias: that is what makes the kernel load it
 # on demand at `mount -i -t ntfs`, and it is also the proof the build produced the
-# NTFSPLUS driver rather than an empty object (gotcha #25 fails silently otherwise)
+# NTFSPLUS driver rather than an empty object (gotcha #31 fails silently otherwise)
 ntfs_alias=$(modinfo -k "$MSI_KVER" -F alias ntfs 2>/dev/null || true)
 if [ "$ntfs_alias" != "fs-ntfs" ]; then
     echo "FAIL: ntfs declares alias '$ntfs_alias' (expected fs-ntfs)"
@@ -815,7 +786,7 @@ if [ "${#ntfs_autoload[@]}" -gt 0 ]; then
 fi
 # the two generic mount.ntfs helpers are gone: while they exist, mount(8) routes
 # every `mount -t ntfs` — fstab lines and systemd .mount units included — to
-# mount.ntfs-3g and the kernel driver is never reached (gotcha #26)
+# mount.ntfs-3g and the kernel driver is never reached (gotcha #32)
 NTFS_MOUNT_HELPERS=(
     /usr/sbin/mount.ntfs
     /usr/bin/mount.ntfs
@@ -850,7 +821,7 @@ done
 # protocol: "HdrS" magic at offset 514, kernel_version pointer at 526) must
 # equal the /usr/lib/modules/<kver> directory name. Catches the base/akmods
 # split failing on the kernel itself — a kernel packaged under a directory it
-# was not built as loads no module at all, in-tree included (gotcha #33).
+# was not built as loads no module at all, in-tree included (gotcha #39).
 # Ported from bazzite ad0ead78 (goss kernel_modules_match_uname).
 vml_found=0
 for dir in /usr/lib/modules/*/; do
@@ -945,5 +916,110 @@ for path, (table, minimum) in DATABASES.items():
     print(f'{path} integrity ok ({count} rows in {table})')
 PYEOF
 
-echo "MX smoke tests OK."
+# --- bazzite-63: mise bootstrap (profile.d activation + skel runtime config) ---
+[ -f /etc/profile.d/99-mise.sh ] || { echo "FAIL: /etc/profile.d/99-mise.sh missing"; exit 1; }
+[ -f /etc/skel/.config/mise/config.toml ] || { echo "FAIL: mise skel config.toml missing"; exit 1; }
+
+# --- bazzite-63: Konsole PowerShell default profile (skel, bash fallback until setup-dev) ---
+[ -f /etc/skel/.local/share/konsole/Powershell.profile ] || {
+    echo "FAIL: skel Konsole Powershell.profile missing"; exit 1; }
+grep -q '^DefaultProfile=Powershell.profile$' /etc/skel/.config/konsolerc || {
+    echo "FAIL: skel konsolerc does not set Powershell.profile as default"; exit 1; }
+grep -q 'exec bash -l' /etc/skel/.local/share/konsole/Powershell.profile || {
+    echo "FAIL: Konsole profile lost the bash fallback (fresh installs would get a broken terminal)"; exit 1; }
+
+# --- bazzite-63: Konsole profile user-setup hook (accounts that predate the image) ---
+KONSOLE_HOOK=/usr/share/ublue-os/user-setup.hooks.d/22-bazzite-63-konsole-profile.sh
+if [ ! -x "$KONSOLE_HOOK" ]; then
+    echo "FAIL: $KONSOLE_HOOK missing or not executable"
+    exit 1
+fi
+grep -qE '^version-script bazzite-63-konsole user [0-9]+ ' "$KONSOLE_HOOK" || {
+    echo "FAIL: $KONSOLE_HOOK lost its version-script guard"; exit 1; }
+
+# --- bazzite-63: tray clock seconds one-shot autostart (Plasma 6 embeds the
+# --- digitalclock package in its plugin: no on-disk main.xml to patch) ---
+CLOCK_SCRIPT=/usr/libexec/bazzite63-clock-seconds
+CLOCK_AUTOSTART=/etc/xdg/autostart/bazzite63-clock-seconds.desktop
+if [ ! -x "$CLOCK_SCRIPT" ]; then
+    echo "FAIL: $CLOCK_SCRIPT missing or not executable"
+    exit 1
+fi
+grep -q 'evaluateScript' "$CLOCK_SCRIPT" || {
+    echo "FAIL: $CLOCK_SCRIPT lost the plasmashell scripting call"; exit 1; }
+grep -q 'showSeconds' "$CLOCK_SCRIPT" || {
+    echo "FAIL: $CLOCK_SCRIPT no longer sets showSeconds"; exit 1; }
+if [ ! -f "$CLOCK_AUTOSTART" ]; then
+    echo "FAIL: $CLOCK_AUTOSTART missing"
+    exit 1
+fi
+grep -qxF "Exec=$CLOCK_SCRIPT" "$CLOCK_AUTOSTART" || {
+    echo "FAIL: $CLOCK_AUTOSTART Exec does not point at $CLOCK_SCRIPT"; exit 1; }
+
+# --- bazzite-63: GUI apps in the Flatpak default-install list ---
+FLATPAK_INSTALL_LIST=/usr/share/ublue-os/bazzite/flatpak/install
+for app in com.google.Chrome org.mozilla.thunderbird_esr me.proton.Pass \
+           io.dbeaver.DBeaverCommunity org.remmina.Remmina \
+           com.parsecgaming.parsec com.discordapp.Discord; do
+    grep -qxF "$app" "$FLATPAK_INSTALL_LIST" || { echo "FAIL: $app not in Flatpak default-install"; exit 1; }
+done
+
+# --- bazzite-63: on-demand Flatpak installer (the list is never consumed at runtime by Bazzite) ---
+# Runs only via `ujust install-default-flatpaks` / `ujust bazzite-63-setup`:
+# no silent install at boot BY DESIGN, so no systemd unit must ship.
+[ -x /usr/libexec/bazzite63-flatpak-manager ] || {
+    echo "FAIL: /usr/libexec/bazzite63-flatpak-manager missing or not executable"; exit 1; }
+[ ! -e /usr/lib/systemd/system/bazzite63-flatpak-manager.service ] || {
+    echo "FAIL: stale bazzite63-flatpak-manager unit shipped (installs must stay on-demand)"; exit 1; }
+
+# --- bazzite-63: flatpak-manager processes EVERY ref in the install list ---
+# flatpak reads stdin even with --assumeyes: a bare `flatpak install` inside
+# the manager's while-read loop swallows the rest of the list, so only the
+# first ref is processed while the run still reports success. The stub
+# reproduces that stdin-eating behaviour; one install invocation per list
+# entry, or the manager is broken.
+STUB_DIR=$(mktemp -d)
+export FLATPAK_STUB_LOG="$STUB_DIR/install-calls.log"
+: > "$FLATPAK_STUB_LOG"
+cat > "$STUB_DIR/flatpak" <<'EOF'
+#!/usr/bin/bash
+cat > /dev/null                     # swallow stdin like the real flatpak CLI
+if [ "${1:-}" = "install" ]; then echo "$*" >> "$FLATPAK_STUB_LOG"; fi
+exit 0
+EOF
+chmod +x "$STUB_DIR/flatpak"
+PATH="$STUB_DIR:$PATH" /usr/libexec/bazzite63-flatpak-manager < /dev/null > /dev/null
+flatpak_refs_expected=$(grep -cvE '^\s*(#|$)' "$FLATPAK_INSTALL_LIST")
+flatpak_refs_installed=$(wc -l < "$FLATPAK_STUB_LOG")
+rm -rf "$STUB_DIR"
+if [ "$flatpak_refs_installed" -ne "$flatpak_refs_expected" ]; then
+    echo "FAIL: flatpak-manager ran $flatpak_refs_installed/$flatpak_refs_expected installs (stdin swallowed by flatpak install?)"
+    exit 1
+fi
+
+# --- bazzite-63: Chrome as system-wide default browser (XDG default merged at build) ---
+# Our entries are MERGED into Bazzite's own /etc/xdg/mimeapps.list by
+# 68-flatpak-apps.sh (a static replacement file would clobber upstream
+# entries like the Bazaar .flatpakref handler). No first-login hook: a hook
+# racing the Flatpak install stamps itself before Chrome exists and never
+# retries; users can still override per-user via ~/.config/mimeapps.list.
+for entry in 'x-scheme-handler/http=com.google.Chrome.desktop' \
+             'x-scheme-handler/https=com.google.Chrome.desktop' \
+             'text/html=com.google.Chrome.desktop' \
+             'application/xhtml+xml=com.google.Chrome.desktop'; do
+    grep -qxF "$entry" /etc/xdg/mimeapps.list || {
+        echo "FAIL: /etc/xdg/mimeapps.list missing '$entry'"; exit 1; }
+done
+# Canary against clobbering upstream defaults: Bazzite ships the Bazaar
+# .flatpakref association in the same file — it must survive our merge.
+grep -q '^application/vnd\.flatpak\.ref=' /etc/xdg/mimeapps.list || {
+    echo "FAIL: upstream mimeapps entries were clobbered (flatpak.ref handler missing)"; exit 1; }
+[ ! -e /usr/share/ublue-os/user-setup.hooks.d/21-bazzite-63-default-browser.sh ] || {
+    echo "FAIL: stale default-browser hook shipped alongside the XDG default"; exit 1; }
+
+# --- bazzite-63: removed integrations are gone ---
+[ ! -f /etc/yum.repos.d/mozilla.repo ] || { echo "FAIL: mozilla.repo should be removed"; exit 1; }
+! rpm -q firefox &> /dev/null || { echo "FAIL: firefox RPM should not be installed (Firefox stays Flatpak)"; exit 1; }
+
+echo "bazzite-63 smoke tests OK."
 echo "::endgroup::"
