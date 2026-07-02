@@ -106,3 +106,66 @@ setup-m365-pwa:
     Terminal=false
     EOF
     echo "Microsoft 365 (PWA) launcher created."
+
+# One-glance health check: booted image, Flatpak manager, default apps,
+# default browser and per-user dev tooling. Read-only, safe to run anytime.
+[group("system")]
+b63-status:
+    #!/usr/bin/env bash
+    set -o pipefail
+    fail=0
+    ok() { printf '  \033[1;32mOK\033[0m  %s\n' "$1"; }
+    ko() { printf '  \033[1;31mKO\033[0m  %s\n' "$1"; fail=1; }
+
+    echo "== bazzite-63 status =="
+
+    ref=$(rpm-ostree status --json 2>/dev/null | jq -r '.deployments[] | select(.booted==true) | ."container-image-reference" // ""')
+    ver=$(rpm-ostree status --json 2>/dev/null | jq -r '.deployments[] | select(.booted==true) | .version // ""')
+    if [[ "$ref" == *"bazzite-63"* ]]; then
+        ok "booted image: bazzite-63 (version $ver)"
+    else
+        ko "booted image: ${ref:-unknown} (expected bazzite-63 — did the bootc switch happen?)"
+    fi
+
+    state=$(systemctl is-enabled bazzite63-flatpak-manager.service 2>/dev/null || echo missing)
+    if [[ "$state" == "enabled" ]]; then
+        ok "bazzite63-flatpak-manager: enabled"
+    else
+        ko "bazzite63-flatpak-manager: $state"
+    fi
+
+    stamp=/etc/bazzite/b63_flatpak_manager_version
+    if [[ -f "$stamp" ]]; then
+        ok "Flatpak install run: completed (stamp $(cut -c1-14 "$stamp")…)"
+    else
+        result=$(systemctl show -p Result --value bazzite63-flatpak-manager.service 2>/dev/null)
+        ko "Flatpak install run: not completed yet (Result=${result:-n/a}) — journalctl -u bazzite63-flatpak-manager"
+    fi
+
+    installed=$(flatpak list --app --columns=application 2>/dev/null)
+    missing=0
+    while read -r app; do
+        grep -qxF "$app" <<< "$installed" || { ko "flatpak missing: $app"; missing=1; }
+    done < <(grep -vE '^\s*(#|$)' /usr/share/ublue-os/bazzite/flatpak/install)
+    [[ $missing -eq 0 ]] && ok "all Flatpaks from the default-install list are installed"
+
+    browser=$(xdg-settings get default-web-browser 2>/dev/null || echo n/a)
+    if [[ "$browser" == "com.google.Chrome.desktop" ]]; then
+        ok "default browser: Chrome"
+    else
+        ko "default browser: $browser — fix: xdg-settings set default-web-browser com.google.Chrome.desktop"
+    fi
+
+    if command -v mise >/dev/null 2>&1 || [ -x /home/linuxbrew/.linuxbrew/bin/mise ]; then
+        ok "dev tooling: mise present"
+    else
+        ko "dev tooling not initialised — run: ujust setup-dev"
+    fi
+
+    echo
+    if [[ $fail -eq 0 ]]; then
+        echo "All good."
+    else
+        echo "Something needs attention (see KO lines above)."
+        exit 1
+    fi

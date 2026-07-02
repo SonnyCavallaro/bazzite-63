@@ -285,7 +285,7 @@ if [ ! -f "$B63_JUSTFILE" ]; then
     echo "FAIL: $B63_JUSTFILE missing"
     exit 1
 fi
-for recipe in setup-dev install-winboat install-rider install-sap-gui install-ibm-acs setup-m365-pwa; do
+for recipe in setup-dev install-winboat install-rider install-sap-gui install-ibm-acs setup-m365-pwa b63-status; do
     grep -q "^${recipe}" "$B63_JUSTFILE" || {
         echo "FAIL: ${recipe} recipe not found in $B63_JUSTFILE"
         exit 1
