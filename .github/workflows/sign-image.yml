@@ -8,14 +8,14 @@ on:
     inputs:
       image:
         description: >-
-          Image to sign, with its tag or digest (ghcr.io/matrixdj96/<image>:<tag>)
+          Image to sign, with its tag or digest (ghcr.io/sonnycavallaro/<image>:<tag>)
         type: string
         required: true
 
 permissions: {}
 
 concurrency:
-  group: bazzite-mx-sign-image
+  group: bazzite-63-sign-image
   cancel-in-progress: false
 
 # Sets init.defaultBranch, so actions/checkout's `git init` prints no hint.
@@ -55,9 +55,7 @@ jobs:
           set -euo pipefail
 
           case "$IMAGE_TO_SIGN" in
-            ghcr.io/matrixdj96/bazzite-mx[:@]* \
-            | ghcr.io/matrixdj96/bazzite-mx-nvidia-open[:@]* \
-            | ghcr.io/matrixdj96/bazzite-mx-nvidia[:@]*)
+            ghcr.io/sonnycavallaro/bazzite-63[:@]*)
               ;;
             *)
               echo "refusing to sign '$IMAGE_TO_SIGN': not one of this repository's images" >&2

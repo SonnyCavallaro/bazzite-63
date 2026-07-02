@@ -6,14 +6,15 @@ name: Trigger Release
 
 on:
   schedule:
-    # Sunday 03:20 UTC
-    - cron: "20 3 * * 0"
+    # Sunday 07:20 UTC, four hours after bazzite-mx's own weekly release, so
+    # the week's base is on its :stable when this one builds.
+    - cron: "20 7 * * 0"
   workflow_dispatch:
 
 permissions: {}
 
 concurrency:
-  group: bazzite-mx-trigger-release
+  group: bazzite-63-trigger-release
   cancel-in-progress: false
 
 # Sets init.defaultBranch, so actions/checkout's `git init` prints no hint.

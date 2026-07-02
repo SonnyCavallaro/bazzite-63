@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Trust for our own updates: a host verifies every pull of ghcr.io/matrixdj96
-# against the repo's cosign key. matchRepository keeps the tag out of it,
-# because a host follows :stable while the signature is on the digest.
+# Trust for our own updates: a host verifies every pull of ghcr.io/sonnycavallaro
+# against the repo's cosign key, next to the base's scope for ghcr.io/matrixdj96.
+# matchRepository keeps the tag out of it, because a host follows :stable while
+# the signature is on the digest.
 #
 # Usage: run by build.sh; no arguments. Reads cosign.pub at the repo root.
-# Writes: /etc/pki/containers/matrixdj96.pub and the scope in
+# Writes: /etc/pki/containers/sonnycavallaro.pub and the scope in
 #   /etc/containers/policy.json.
 # Exit status: 0 done; the build stops on a `FAIL: …` line.
 
@@ -12,9 +13,9 @@
 source "$(dirname "$(realpath "$0")")/lib/env.sh"
 
 KEY_SOURCE=$CTX/cosign.pub
-KEY=/etc/pki/containers/matrixdj96.pub
+KEY=/etc/pki/containers/sonnycavallaro.pub
 POLICY=/etc/containers/policy.json
-SCOPE=ghcr.io/matrixdj96
+SCOPE=ghcr.io/sonnycavallaro
 
 # --- the steps ----------------------------------------------------------------
 

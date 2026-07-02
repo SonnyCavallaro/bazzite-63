@@ -19,11 +19,11 @@ version=$(jq -r '.version' "$IMAGE_INFO" 2>&1 || true)
 
 check_image_ref() {
     local fields
-    local wanted='."image-vendor" == "matrixdj96"
-        and (."image-ref" | startswith("ostree-image-signed:docker://ghcr.io/matrixdj96/"))'
+    local wanted='."image-vendor" == "sonnycavallaro"
+        and (."image-ref" | startswith("ostree-image-signed:docker://ghcr.io/sonnycavallaro/"))'
 
     if jq -e "$wanted" "$IMAGE_INFO" > /dev/null 2>&1; then
-        echo "OK: image-ref points at ghcr.io/matrixdj96 over the signed transport"
+        echo "OK: image-ref points at ghcr.io/sonnycavallaro over the signed transport"
     else
         fields=$(jq -c '{"image-vendor", "image-ref"}' "$IMAGE_INFO" 2>&1 || true)
         echo "FAIL: image-ref or image-vendor: ${fields:-empty}"
@@ -58,25 +58,12 @@ check_os_release() {
 }
 
 check_kde_about_page() {
-    local fields variant
+    local fields
 
-    # The variant names the flavour: a prefix match would accept all three.
-    case "$name" in
-        *nvidia-open)
-            variant="MX (NVIDIA open)"
-            ;;
-        *nvidia)
-            variant="MX (NVIDIA)"
-            ;;
-        *)
-            variant="MX"
-            ;;
-    esac
-
-    if grep -qxF "Variant=$variant" "$KDE_ABOUT_PAGE" 2> /dev/null \
-        && grep -qxF "Website=https://github.com/MatrixDJ96/bazzite-mx" "$KDE_ABOUT_PAGE" \
+    if grep -qxF "Variant=63" "$KDE_ABOUT_PAGE" 2> /dev/null \
+        && grep -qxF "Website=https://github.com/SonnyCavallaro/bazzite-63" "$KDE_ABOUT_PAGE" \
             2> /dev/null; then
-        echo "OK: KDE About page names $variant and this repo"
+        echo "OK: KDE About page names variant 63 and this repo"
     else
         fields=$(grep -E '^(Variant|Website)=' "$KDE_ABOUT_PAGE" 2>&1 \
             | tr '\n' ' ' || true)

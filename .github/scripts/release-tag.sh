@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Picks the release tag: <fedora>.<build date>, or the .N one past the day's
-# highest suffix taken on any package or release, so all three flavours land on
-# one tag.
+# highest suffix taken on any package or release, so every flavour lands on one
+# tag.
 #
 # The taken tags are probed live: skopeo list-tags on every package of
-# ghcr.io/matrixdj96 (logged in, docs/gotchas.md § An anonymous probe of a GHCR
+# ghcr.io/sonnycavallaro (logged in, docs/gotchas.md § An anonymous probe of a GHCR
 # package never published answers 403) and gh release list on the repository. A
 # probe that fails stops the run; a probe that answers with no tag at all means
 # nothing is taken, which is how a cleaned registry starts again. A name a
@@ -282,23 +282,29 @@ self_test_probes() {
     local output
 
     skopeo() {
-        case "$*" in
-            *bazzite-mx-nvidia)
-                echo 'FATA[0000] Error listing repository tags: fetching tags list:' \
-                    'name unknown' >&2
-                return 1
-                ;;
-            *)
-                echo '{"Tags":["stable","44.20260902"]}'
-                ;;
-        esac
+        echo 'FATA[0000] Error listing repository tags: fetching tags list:' \
+            'name unknown' >&2
+        return 1
     }
     gh() {
         echo 44.20260901
     }
 
-    if ! probe_taken "$dir/probe.txt" 2> /dev/null; then
+    if ! probe_taken "$dir/probe-unpublished.txt" 2> /dev/null; then
         fail_self_test "an unpublished package failed the probe"
+    fi
+
+    if [ "$(cat "$dir/probe-unpublished.txt")" != 44.20260901 ]; then
+        fail_self_test "an unpublished package gave tags:" \
+            "$(tr '\n' ' ' < "$dir/probe-unpublished.txt")"
+    fi
+
+    skopeo() {
+        echo '{"Tags":["stable","44.20260902"]}'
+    }
+
+    if ! probe_taken "$dir/probe.txt" 2> /dev/null; then
+        fail_self_test "a published package failed the probe"
     fi
 
     if [ "$(sort -u "$dir/probe.txt" | wc -l)" -ne 3 ]; then

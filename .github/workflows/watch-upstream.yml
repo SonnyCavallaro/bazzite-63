@@ -18,7 +18,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: bazzite-mx-watch-upstream
+  group: bazzite-63-watch-upstream
   cancel-in-progress: false
 
 # Sets init.defaultBranch, so actions/checkout's `git init` prints no hint.

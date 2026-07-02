@@ -4,10 +4,8 @@
 #
 # Usage: run by build.sh; no arguments. Reads the build args IMAGE_NAME,
 #   IMAGE_VENDOR and VERSION from the environment (the Containerfile passes
-#   them). base-version is what the base's image-info.json says, which can
-#   trail the base's OCI label (the source of a sandbox or pre-flight build's
-#   `<base version>.dev`) by a day: docs/gotchas.md § The base's
-#   image-info.json and its OCI label can name different days.
+#   them). base-version is the version bazzite-mx's image-info.json gives,
+#   its release tag.
 # Writes: /usr/share/ublue-os/image-info.json, /usr/lib/os-release and
 #   /etc/xdg/kcm-about-distrorc.
 # Exit status: 0 done; the build stops on a `FAIL: …` line.
@@ -18,8 +16,8 @@ source "$(dirname "$(realpath "$0")")/lib/env.sh"
 IMAGE_INFO=/usr/share/ublue-os/image-info.json
 OS_RELEASE=/usr/lib/os-release
 KDE_ABOUT_PAGE=/etc/xdg/kcm-about-distrorc
-# One repository builds the three flavours, the URL the OCI labels carry.
-REPO_URL=https://github.com/MatrixDJ96/bazzite-mx
+# The URL the OCI labels carry.
+REPO_URL=https://github.com/SonnyCavallaro/bazzite-63
 
 # --- the steps ----------------------------------------------------------------
 
@@ -52,7 +50,7 @@ write_image_info() {
     local base_version=$1
     local version=$2
     local image_ref="ostree-image-signed:docker://ghcr.io/${IMAGE_VENDOR}/${IMAGE_NAME}"
-    local pretty="${IMAGE_NAME} ${version} (Bazzite ${base_version})"
+    local pretty="${IMAGE_NAME} ${version} (bazzite-mx ${base_version})"
 
     jq --arg name "$IMAGE_NAME" \
         --arg vendor "$IMAGE_VENDOR" \
@@ -83,24 +81,10 @@ write_os_release() {
 }
 
 # The About page of Plasma's System Settings: the repository as the website
-# and the flavour as the variant.
+# and the image as the variant.
 write_kde_about_page() {
-    local variant
-
-    case "$IMAGE_NAME" in
-        *nvidia-open)
-            variant="MX (NVIDIA open)"
-            ;;
-        *nvidia)
-            variant="MX (NVIDIA)"
-            ;;
-        *)
-            variant="MX"
-            ;;
-    esac
-
     sed -i "s|^Website=.*|Website=${REPO_URL}|" "$KDE_ABOUT_PAGE"
-    sed -i "s/^Variant=.*/Variant=${variant}/" "$KDE_ABOUT_PAGE"
+    sed -i "s/^Variant=.*/Variant=63/" "$KDE_ABOUT_PAGE"
 }
 
 # --- main ---------------------------------------------------------------------
@@ -116,4 +100,4 @@ write_image_info "$base_version" "$version"
 write_os_release "$version"
 write_kde_about_page
 
-log "image-info: ${IMAGE_NAME} ${version} on Bazzite ${base_version}"
+log "image-info: ${IMAGE_NAME} ${version} on bazzite-mx ${base_version}"

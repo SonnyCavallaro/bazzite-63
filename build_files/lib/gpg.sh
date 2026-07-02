@@ -5,27 +5,9 @@
 # the table. Sourced by lib/env.sh and tests/lib.sh.
 
 # KEY_FPR[<key file in the image>]=<primary key fingerprint>, each read with
-# `gpg --show-keys` on the file downloaded from the URL named above it.
+# `gpg --show-keys` on the file downloaded from the URL named above it. The
+# base's own keys are pinned in bazzite-mx's table.
 declare -A KEY_FPR=(
-    # "Docker Release (CE rpm) <docker@docker.com>"
-    # download.docker.com/linux/fedora/gpg
-    ["/etc/pki/rpm-gpg/RPM-GPG-KEY-docker-ce"]=060A61C51B558A7F742B77AAC52FEB6B621E9F35
-
-    # "Microsoft (Release signing) <gpgsecurity@microsoft.com>"
-    # packages.microsoft.com/keys/microsoft.asc
-    ["/etc/pki/rpm-gpg/RPM-GPG-KEY-microsoft"]=BC528686B50D79E339D3721CEB3E94ADBE1229CF
-
-    # "jdxcode_mise (None) <jdxcode#mise@copr.fedorahosted.org>"
-    # download.copr.fedorainfracloud.org/results/jdxcode/mise/pubkey.gpg
-    ["/etc/pki/rpm-gpg/RPM-GPG-KEY-copr-jdxcode-mise"]=9504792D1F9CCA1514FD1DEC8497A816C83E991C
-
-    # "Code signing for 1Password <codesign@1password.com>"
-    # downloads.1password.com/linux/keys/1password.asc
-    ["/etc/pki/rpm-gpg/RPM-GPG-KEY-1password"]=3FEF9748469ADBE15DA7CA80AC2D62742012EA22
-
-    # "lizardbyte_stable (None) <lizardbyte#stable@copr.fedorahosted.org>"
-    # download.copr.fedorainfracloud.org/results/lizardbyte/stable/pubkey.gpg
-    ["/etc/pki/rpm-gpg/RPM-GPG-KEY-copr-lizardbyte-stable"]=1827C306E9944D99DF4CACF143B84301E4F68234
 )
 
 # The primary key's fingerprint of an armored key file, 40 upper-case hex

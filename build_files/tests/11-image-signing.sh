@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Smoke test of 11-image-signing.sh: our key, its policy scope, the sigstore
-# attachment stanza, and the base's own trust untouched.
+# attachment stanza, and the base's own trust untouched, bazzite-mx's included.
 #
 # Usage: run by tests/run.sh inside the image (offline, on the cleaned tree),
 # with the repo at ../.. so cosign.pub is readable.
@@ -9,10 +9,11 @@
 set -euo pipefail
 
 CTX=$(dirname "$(realpath "$0")")/../..
-KEY=/etc/pki/containers/matrixdj96.pub
+KEY=/etc/pki/containers/sonnycavallaro.pub
 POLICY=/etc/containers/policy.json
-REGISTRIES_STANZA=/etc/containers/registries.d/matrixdj96.yaml
-SCOPE=ghcr.io/matrixdj96
+REGISTRIES_STANZA=/etc/containers/registries.d/sonnycavallaro.yaml
+SCOPE=ghcr.io/sonnycavallaro
+BASE_KEY=/etc/pki/containers/matrixdj96.pub
 
 check_key() {
     if [ -f "$KEY" ] && cmp -s "$KEY" "$CTX/cosign.pub"; then
@@ -42,13 +43,15 @@ check_policy_scope() {
 check_base_policy_kept() {
     local base_entries
     local wanted='.default[0].type == "reject"
-        and (.transports.docker["ghcr.io/ublue-os"][0].type == "sigstoreSigned")'
+        and (.transports.docker["ghcr.io/ublue-os"][0].type == "sigstoreSigned")
+        and (.transports.docker["ghcr.io/matrixdj96"][0].keyPath == $base_key)'
+    local entries='{default, ublue: .transports.docker["ghcr.io/ublue-os"],
+        mx: .transports.docker["ghcr.io/matrixdj96"]}'
 
-    if jq -e "$wanted" "$POLICY" > /dev/null 2>&1; then
-        echo "OK: base policy kept (default reject, ublue-os scope signed)"
+    if jq -e --arg base_key "$BASE_KEY" "$wanted" "$POLICY" > /dev/null 2>&1; then
+        echo "OK: base policy kept (default reject, ublue-os and matrixdj96 scopes signed)"
     else
-        base_entries=$(jq -c '{default, ublue: .transports.docker["ghcr.io/ublue-os"]}' "$POLICY" \
-            2>&1 || true)
+        base_entries=$(jq -c "$entries" "$POLICY" 2>&1 || true)
         echo "FAIL: base policy changed: ${base_entries:-empty}"
     fi
 }

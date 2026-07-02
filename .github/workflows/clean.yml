@@ -1,4 +1,4 @@
-# GHCR retention: prunes the old versions of the three packages every Sunday, or
+# GHCR retention: prunes the old versions of the package every Sunday, or
 # on a dispatch that lists and deletes nothing unless told otherwise. A dated
 # tag is prunable because its GitHub Release outlives it.
 name: Clean
@@ -16,7 +16,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: bazzite-mx-clean
+  group: bazzite-63-clean
   cancel-in-progress: false
 
 jobs:
@@ -31,7 +31,7 @@ jobs:
         uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          packages: bazzite-mx,bazzite-mx-nvidia-open,bazzite-mx-nvidia
+          packages: bazzite-63
           older-than: 90 days
           keep-n-tagged: 7
           keep-n-untagged: 7

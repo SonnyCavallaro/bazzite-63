@@ -1,28 +1,28 @@
 #!/usr/bin/env bash
-# Runs the local pre-flight: one flavour built with the recipe CI runs, judged
-# on the build's own exit status and on the scripts' own output, then probed
-# with check-image.sh. It is the one entry point the /preflight command calls.
+# Runs the local pre-flight: the base verified, the flavour built with the
+# recipe CI runs, judged on the build's own exit status and on the scripts' own
+# output, then probed with check-image.sh. It is the one entry point the /preflight command calls.
 #
 # Usage: preflight-build.sh [<flavour>] [--no-cache]
-#          <flavour>   bazzite (default), bazzite-nvidia-open or bazzite-nvidia
+#          <flavour>   bazzite-mx (default), the one base
 #          --no-cache  rebuild every layer; a changed script under build_files/
 #                      or system_files/ needs it, the layer cache not seeing a
 #                      bind mount (docs/gotchas.md § A local pre-flight can
 #                      exit 0 without running a changed build script)
 #        preflight-build.sh --self-test
-# Output: every name carries the flavour's image, so two flavours coexist:
-#   <image>-base.env, <image>-labels.txt and <image>-preflight.log in /var/tmp
-#   (/tmp is a tmpfs on the hosts and the log has to outlive a reboot) and the
-#   image localhost/<image>:preflight, <image> being bazzite-mx,
-#   bazzite-mx-nvidia-open or bazzite-mx-nvidia. On stdout the build's log,
+# Output: every name carries the flavour's image: <image>-base.env,
+#   <image>-labels.txt and <image>-preflight.log in /var/tmp (/tmp is a tmpfs
+#   on the hosts and the log has to outlive a reboot) and the image
+#   localhost/<image>:preflight, <image> being bazzite-63. On stdout
+#   verify-base.sh's line, the build's log,
 #   `build ok: N scripts ran, N tests passed, exit 0`, the lines of
 #   check-image.sh and the closing
 #   `preflight ok: <image> <version> <id> (<N> GiB)`.
 # Exit status: 0 image built and probed; 1 when an argument is refused, the
 #   build fails, the log lacks the scripts' own output or holds a `FAIL:` line,
-#   the reason on stderr as `preflight-build: …`; when resolve-base.sh or
-#   check-image.sh refuses, its own status and its own `resolve-base: …` or
-#   `check-image: …` line.
+#   the reason on stderr as `preflight-build: …`; when resolve-base.sh,
+#   verify-base.sh or check-image.sh refuses, its own status and its own
+#   `resolve-base: …`, `verify-base: …` or `check-image: …` line.
 set -euo pipefail
 
 # shellcheck source=lib.sh
@@ -63,7 +63,7 @@ parse_args() {
         esac
     done
 
-    FLAVOUR=${FLAVOUR:-bazzite}
+    FLAVOUR=${FLAVOUR:-bazzite-mx}
 
     if ! image_of "$FLAVOUR" > /dev/null; then
         return 1
@@ -129,9 +129,9 @@ judge_log() {
 
 # --- the build ----------------------------------------------------------------
 
-# write_coords_and_labels <flavour>: resolve-base.sh into COORDS_FILE and
-# image-labels.sh, for the checkout's HEAD, into LABELS_FILE; sets image_name,
-# base_image and version in the caller.
+# write_coords_and_labels <flavour>: resolve-base.sh into COORDS_FILE, the base
+# it pinned verified, and image-labels.sh, for the checkout's HEAD, into
+# LABELS_FILE; sets image_name, base_image and version in the caller.
 write_coords_and_labels() {
     local flavour=$1
     local kernel_version revision
@@ -141,6 +141,7 @@ write_coords_and_labels() {
     image_name=$(sed -n 's/^image_name=//p' "$COORDS_FILE")
     base_image=$(sed -n 's/^base_image=//p' "$COORDS_FILE")
     kernel_version=$(sed -n 's/^kernel_version=//p' "$COORDS_FILE")
+    "$SCRIPTS_DIR/verify-base.sh" "$base_image"
 
     "$SCRIPTS_DIR/image-labels.sh" "$COORDS_FILE" "" "$revision" > "$LABELS_FILE"
     version=$(sed -n 's/^org\.opencontainers\.image\.version=//p' "$LABELS_FILE")
@@ -213,39 +214,32 @@ SELF_TEST_RUN_STEP+=' /ctx/build_files/build.sh'
 # self_test_arguments: what parse_args and set_output_names make of good
 # arguments, and the bad ones parse_args refuses.
 self_test_arguments() {
-    local bad output plain_log
+    local bad output
 
     if ! parse_args > /dev/null; then
         fail_self_test "no arguments refused"
     fi
 
-    if [ "$FLAVOUR" != bazzite ] || [ -n "$NO_CACHE" ]; then
+    if [ "$FLAVOUR" != bazzite-mx ] || [ -n "$NO_CACHE" ]; then
         fail_self_test "defaults are '$FLAVOUR' and NO_CACHE='$NO_CACHE'"
     fi
 
-    if ! parse_args bazzite-nvidia --no-cache > /dev/null; then
-        fail_self_test "'bazzite-nvidia --no-cache' refused"
+    if ! parse_args bazzite-mx --no-cache > /dev/null; then
+        fail_self_test "'bazzite-mx --no-cache' refused"
     fi
 
-    if [ "$FLAVOUR" != bazzite-nvidia ] || [ "$NO_CACHE" != 1 ]; then
+    if [ "$NO_CACHE" != 1 ]; then
         fail_self_test "'--no-cache' not read"
     fi
 
-    # Known-bad: every flavour wrote bazzite-mx-preflight.log and re-tagged
-    # localhost/bazzite-mx:preflight, so one pre-flight erased the other's.
-    set_output_names bazzite
-    plain_log=$LOG_FILE
-    set_output_names bazzite-nvidia
+    set_output_names bazzite-mx
 
-    if [ "$LOG_FILE" = "$plain_log" ]; then
-        fail_self_test "two flavours share the log $LOG_FILE"
+    if [ "$IMAGE_TAG" != localhost/bazzite-63:preflight ] \
+        || [ "$LOG_FILE" != /var/tmp/bazzite-63-preflight.log ]; then
+        fail_self_test "the outputs of bazzite-mx are '$IMAGE_TAG' and '$LOG_FILE'"
     fi
 
-    if [ "$IMAGE_TAG" != localhost/bazzite-mx-nvidia:preflight ]; then
-        fail_self_test "the tag of bazzite-nvidia is '$IMAGE_TAG'"
-    fi
-
-    for bad in bazzite-closed --bogus "bazzite bazzite-nvidia"; do
+    for bad in bazzite --bogus "bazzite-mx bazzite-mx"; do
         REFUSED=$((REFUSED + 1))
 
         # shellcheck disable=SC2086  # the case with two flavours is split on purpose
@@ -272,7 +266,7 @@ self_test_write_logs() {
         '=== build.sh: 20 scripts ran ===' \
         'OK: 90-validate-repos.sh: 3 repo files valid' \
         'tests: 20 passed' \
-        'COMMIT localhost/bazzite-mx:preflight' \
+        'COMMIT localhost/bazzite-63:preflight' \
         'BUILD_EXIT=0' > "$dir/good.log"
 
     sed '/^=== build\.sh:/d' "$dir/good.log" > "$dir/noscripts.log"
@@ -283,7 +277,7 @@ self_test_write_logs() {
     printf '%s\n' \
         "$SELF_TEST_RUN_STEP" \
         '--> Using cache 2f6496a5be2f' \
-        'COMMIT localhost/bazzite-mx:preflight' \
+        'COMMIT localhost/bazzite-63:preflight' \
         'BUILD_EXIT=0' > "$dir/cached.log"
 }
 

@@ -4,12 +4,12 @@
 # empty label fails the build instead of defaulting.
 #
 # Usage: resolve-base.sh <flavour>
-#          <flavour>  bazzite, bazzite-nvidia-open or bazzite-nvidia; its
-#                     :stable manifest is read with skopeo. Only the first
-#                     argument is read, anything after it is ignored
+#          <flavour>  bazzite-mx, the base this repo builds on; its :stable
+#                     manifest is read with skopeo. Only the first argument is
+#                     read, anything after it is ignored
 #        resolve-base.sh --digests
-#          base_digest_<flavour> for the three flavours, read once for the
-#          release run so the gate can hold the build jobs to that reading
+#          base_digest_<flavour> for the flavour, read once for the release
+#          run so the gate can hold the build job to that reading
 #        resolve-base.sh --self-test
 # Output: KEY=value lines on stdout, and in GITHUB_OUTPUT when a workflow set
 #   it: image_name, base_name, base_image (name@digest), base_digest,
@@ -19,7 +19,7 @@
 #   cannot be read or lacks the digest, the ostree.linux label or the version
 #   label, the reason on stderr as `resolve-base: …`. An unknown flavour is
 #   refused by the registry, whose reason the line carries, or by the flavour
-#   map when upstream publishes it.
+#   map when bazzite-mx publishes it.
 set -euo pipefail
 
 # shellcheck source=lib.sh
@@ -136,7 +136,7 @@ report() {
     emit "$coords"
 }
 
-# report_digests: the three bases inspected, their keyed digests emitted;
+# report_digests: the bases inspected, their keyed digests emitted;
 # exits 1 on a base it cannot inspect or whose manifest does not resolve (no
 # digest, ostree.linux or version label).
 report_digests() {
@@ -170,27 +170,25 @@ self_test_manifest() {
         "$SELF_TEST_DIGEST" 7.2.1-ogc4.1.fc44.x86_64 44.20260902
 }
 
-# self_test_resolve <manifest>: two flavours resolved, the Fedora release read
-# from the kernel and the base image pinned to the digest.
+# self_test_resolve <manifest>: the flavour resolved, its image named, the
+# Fedora release read from the kernel and the base image pinned to the digest.
 self_test_resolve() {
     local manifest=$1
-    local bazzite nvidia
+    local coords
 
-    if ! bazzite=$(resolve bazzite "$manifest"); then
+    if ! coords=$(resolve bazzite-mx "$manifest"); then
         fail_self_test "known-good input did not resolve"
     fi
 
-    nvidia=$(resolve bazzite-nvidia "$manifest" || true)
-
-    if ! grep -qx 'fedora_version=44' <<< "$bazzite"; then
+    if ! grep -qx 'fedora_version=44' <<< "$coords"; then
         fail_self_test "fedora_version not read from the kernel"
     fi
 
-    if ! grep -qx 'image_name=bazzite-mx-nvidia' <<< "$nvidia"; then
-        fail_self_test "the closed flavour's image_name not derived"
+    if ! grep -qx 'image_name=bazzite-63' <<< "$coords"; then
+        fail_self_test "the flavour's image_name not derived"
     fi
 
-    if ! grep -qx "base_image=ghcr.io/ublue-os/bazzite@$SELF_TEST_DIGEST" <<< "$bazzite"; then
+    if ! grep -qx "base_image=ghcr.io/matrixdj96/bazzite-mx@$SELF_TEST_DIGEST" <<< "$coords"; then
         fail_self_test "base_image not pinned to the digest"
     fi
 }
@@ -209,14 +207,14 @@ self_test_bad_inputs() {
         '{}'; do
         REFUSED=$((REFUSED + 1))
 
-        if resolve bazzite "$bad" > /dev/null 2>&1; then
+        if resolve bazzite-mx "$bad" > /dev/null 2>&1; then
             fail_self_test "known-bad input $REFUSED resolved"
         fi
     done
 
     REFUSED=$((REFUSED + 1))
 
-    if resolve bazzite-nvidia-closed "$manifest" > /dev/null 2>&1; then
+    if resolve bazzite "$manifest" > /dev/null 2>&1; then
         fail_self_test "unknown flavour resolved"
     fi
 }
@@ -227,22 +225,19 @@ self_test_digests() {
     local manifest=$1
     local expected
 
-    if [ "$(digest_key bazzite-nvidia-open)" != base_digest_bazzite_nvidia_open ]; then
+    if [ "$(digest_key bazzite-mx)" != base_digest_bazzite_mx ]; then
         fail_self_test "the output key of a flavour is not snake_case"
     fi
 
-    expected=$(printf '%s\n' \
-        "base_digest_bazzite=$SELF_TEST_DIGEST" \
-        "base_digest_bazzite_nvidia_open=$SELF_TEST_DIGEST" \
-        "base_digest_bazzite_nvidia=$SELF_TEST_DIGEST")
+    expected="base_digest_bazzite_mx=$SELF_TEST_DIGEST"
 
-    if [ "$(digests_from "$manifest" "$manifest" "$manifest")" != "$expected" ]; then
+    if [ "$(digests_from "$manifest")" != "$expected" ]; then
         fail_self_test "--digests did not print one keyed digest per flavour"
     fi
 
     REFUSED=$((REFUSED + 1))
 
-    if digests_from "$manifest" "$manifest" '{}' > /dev/null 2>&1; then
+    if digests_from '{}' > /dev/null 2>&1; then
         fail_self_test "--digests accepted a flavour without a digest"
     fi
 }
@@ -261,11 +256,11 @@ self_test_inspect_failure() {
 
     REFUSED=$((REFUSED + 1))
 
-    if output=$(PATH=$stubs:$PATH inspect_remote bazzite 2>&1); then
+    if output=$(PATH=$stubs:$PATH inspect_remote bazzite-mx 2>&1); then
         fail_self_test "a failing skopeo produced a manifest"
     fi
 
-    expected="resolve-base: cannot inspect ${BASE_REGISTRY}/bazzite:${BASE_TAG}:"
+    expected="resolve-base: cannot inspect ${BASE_REGISTRY}/bazzite-mx:${BASE_TAG}:"
     expected+=" WARN retrying (1/3) skopeo: manifest unknown"
 
     if [ "$output" != "$expected" ]; then
@@ -287,7 +282,7 @@ self_test_inspect_retry_note() {
         "printf '%s\\n' '$manifest'" > "$stubs/skopeo"
     chmod +x "$stubs/skopeo"
 
-    if ! output=$(PATH=$stubs:$PATH inspect_remote bazzite 2> /dev/null); then
+    if ! output=$(PATH=$stubs:$PATH inspect_remote bazzite-mx 2> /dev/null); then
         fail_self_test "a skopeo that retried and succeeded was read as a failure"
     fi
 
@@ -307,7 +302,7 @@ self_test() {
     self_test_inspect_failure
     self_test_inspect_retry_note "$manifest"
 
-    echo "self-test ok: 2 flavours resolved, 3 digests keyed, a failing inspect reported," \
+    echo "self-test ok: 1 flavour resolved, 1 digest keyed, a failing inspect reported," \
         "a retried inspect kept clean, $REFUSED bad inputs refused"
 }
 

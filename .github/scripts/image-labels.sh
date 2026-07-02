@@ -19,14 +19,15 @@ set -euo pipefail
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
 
-REPO_URL=https://github.com/MatrixDJ96/bazzite-mx
-# The base stamps io.artifacthub.package.readme-url at ublue-os/bazzite:
-# restated here or the image hands out Bazzite's README as its own.
-README_URL=https://raw.githubusercontent.com/MatrixDJ96/bazzite-mx/refs/heads/main/README.md
-# The base stamps the logo at ublue-os/bazzite too: site/logo.svg is ours.
+REPO_URL=https://github.com/SonnyCavallaro/bazzite-63
+# The base stamps io.artifacthub.package.readme-url at bazzite-mx: restated
+# here or the image hands out bazzite-mx's README as its own.
+README_URL=https://raw.githubusercontent.com/SonnyCavallaro/bazzite-63/refs/heads/main/README.md
+# The repo ships no logo of its own: the base's, restated so the chunked
+# image, which inherits no label, carries it too.
 LOGO_URL=https://raw.githubusercontent.com/MatrixDJ96/bazzite-mx/refs/heads/main/site/logo.svg
-VENDOR=matrixdj96
-DESCRIPTION="Personal bootc image on Bazzite (KDE, stable): the system layer of a three-host fleet"
+VENDOR=sonnycavallaro
+DESCRIPTION="Lean single-flavour bootc workstation image on bazzite-mx (KDE, stable)"
 
 # --- the coordinates ----------------------------------------------------------
 
@@ -54,8 +55,8 @@ read_coords() {
 # image_version <release tag> <base version> <fedora version> <kernel version>:
 # the version label, the tag for a release and <base version>.dev for a sandbox
 # build. A tag naming another Fedora than the base's kernel is refused:
-# release.yml derives the tag from one flavour's base and stamps it on all
-# three, so every flavour's kernel must be that Fedora's.
+# release.yml derives the tag from the base and stamps it on the image, so the
+# image's kernel must be that Fedora's.
 image_version() {
     local tag=$1
     local base_version=$2
@@ -123,15 +124,15 @@ SELF_TEST_REVISION=8cfea1732f154089321597d3c52084db3e9dd8ce
 SELF_TEST_CREATED=2026-09-02T14:00:00Z
 SELF_TEST_BASE_DIGEST=sha256:9556db65991d57a03a7dc18e4ba28a686d8bcdcd6b61235aa69c8267bb22ff76
 
-# self_test_write_coords <file>: the coords of a bazzite-mx build on a Fedora 44
+# self_test_write_coords <file>: the coords of a bazzite-63 build on a Fedora 44
 # base.
 self_test_write_coords() {
     local file=$1
 
     printf '%s\n' \
-        image_name=bazzite-mx \
-        base_name=ghcr.io/ublue-os/bazzite \
-        "base_image=ghcr.io/ublue-os/bazzite@$SELF_TEST_BASE_DIGEST" \
+        image_name=bazzite-63 \
+        base_name=ghcr.io/matrixdj96/bazzite-mx \
+        "base_image=ghcr.io/matrixdj96/bazzite-mx@$SELF_TEST_BASE_DIGEST" \
         "base_digest=$SELF_TEST_BASE_DIGEST" \
         base_version=44.20260902 \
         kernel_version=7.2.1-ogc4.1.fc44.x86_64 \
@@ -161,7 +162,7 @@ self_test_good_coords() {
         fail_self_test "ostree.linux not taken from the coords"
     fi
 
-    if ! grep -qx 'org.opencontainers.image.base.name=ghcr.io/ublue-os/bazzite:stable' \
+    if ! grep -qx 'org.opencontainers.image.base.name=ghcr.io/matrixdj96/bazzite-mx:stable' \
         <<< "$output"; then
         fail_self_test "base.name not derived"
     fi

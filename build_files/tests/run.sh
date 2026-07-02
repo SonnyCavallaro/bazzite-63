@@ -17,7 +17,7 @@ shopt -s nullglob
 
 TESTS_DIR=$(dirname "$(realpath "$0")")
 BUILD_FILES=$(realpath "$TESTS_DIR/..")
-export BUILD_STATE=/usr/lib/bazzite-mx/build-state
+export BUILD_STATE=/usr/lib/bazzite-63/build-state
 # Tests write no .pyc either (docs/gotchas.md § A scriptlet rewrote a packaged `.pyc`).
 export PYTHONDONTWRITEBYTECODE=1
 
@@ -26,8 +26,8 @@ export PYTHONDONTWRITEBYTECODE=1
 # Pairing guard: a feature cannot land without its test and a test cannot
 # outlive its feature. Both directions for the numbered class; one direction
 # for the helpers, a test having to name an installed helper while a helper
-# may carry its cases in its own `--self-test` instead (bazzite-mx-migrate
-# does). One FAIL line per unpaired file.
+# may carry its cases in its own `--self-test` instead. One FAIL line per
+# unpaired file.
 require_pairs() {
     local tests=$1
     local scripts=$2
@@ -55,8 +55,8 @@ require_pairs() {
     for file in "$tests"/helpers/*.sh; do
         stem=$(basename "$file" .sh)
 
-        if [ ! -f "$libexec/bazzite-mx-$stem" ]; then
-            echo "FAIL: test helpers/$stem.sh names no helper bazzite-mx-$stem"
+        if [ ! -f "$libexec/bazzite-63-$stem" ]; then
+            echo "FAIL: test helpers/$stem.sh names no helper bazzite-63-$stem"
             failed=1
         fi
     done
@@ -152,8 +152,8 @@ self_test() {
     mkdir -p "$dir/tests/helpers" "$dir/scripts" "$dir/system_files/usr/libexec"
 
     : > "$dir/scripts/10-a.sh"
-    : > "$dir/system_files/usr/libexec/bazzite-mx-a"
-    : > "$dir/system_files/usr/libexec/bazzite-mx-c"
+    : > "$dir/system_files/usr/libexec/bazzite-63-a"
+    : > "$dir/system_files/usr/libexec/bazzite-63-c"
     printf '#!/usr/bin/env bash\necho "OK: helper a"\n' > "$dir/tests/helpers/a.sh"
     self_test_write_test "$dir" 'echo "OK: a"'
 

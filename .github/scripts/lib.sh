@@ -13,11 +13,12 @@
 #   known-bad input accepted or known-good input refused.
 
 # shellcheck disable=SC2034  # read by the sourcing scripts
-REPO=${REPO:-MatrixDJ96/bazzite-mx}
-REGISTRY=ghcr.io/matrixdj96
-BASE_REGISTRY=ghcr.io/ublue-os
-PACKAGES="bazzite-mx bazzite-mx-nvidia-open bazzite-mx-nvidia"
-FLAVOURS="bazzite bazzite-nvidia-open bazzite-nvidia"
+REPO=${REPO:-SonnyCavallaro/bazzite-63}
+REGISTRY=ghcr.io/sonnycavallaro
+# The base is bazzite-mx's published image, the one flavour this repo builds on.
+BASE_REGISTRY=ghcr.io/matrixdj96
+PACKAGES="bazzite-63"
+FLAVOURS="bazzite-mx"
 
 # A release tag, <fedora>.<yyyymmdd>[.N]: .N when the date or a suffix is taken.
 TAG_SHAPE='^[0-9]+\.[0-9]{8}(\.[0-9]+)?$'
@@ -75,14 +76,8 @@ image_of() {
     local flavour=$1
 
     case "$flavour" in
-        bazzite)
-            echo bazzite-mx
-            ;;
-        bazzite-nvidia-open)
-            echo bazzite-mx-nvidia-open
-            ;;
-        bazzite-nvidia)
-            echo bazzite-mx-nvidia
+        bazzite-mx)
+            echo bazzite-63
             ;;
         *)
             print_error "unknown flavour '$flavour' (${FLAVOURS// / | })"
@@ -119,13 +114,13 @@ absent_error() {
 
 # self_test_image_of: one image derived, one unknown flavour refused.
 self_test_image_of() {
-    if [ "$(image_of bazzite-nvidia-open)" != bazzite-mx-nvidia-open ]; then
+    if [ "$(image_of bazzite-mx)" != bazzite-63 ]; then
         fail_self_test "image of a flavour not derived"
     fi
 
     REFUSED=$((REFUSED + 1))
 
-    if image_of bazzite-deck > /dev/null 2>&1; then
+    if image_of bazzite > /dev/null 2>&1; then
         fail_self_test "an unknown flavour given an image"
     fi
 }

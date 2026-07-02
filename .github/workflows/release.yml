@@ -1,7 +1,7 @@
 # The only workflow that publishes, dispatched by hand, by the weekly trigger or
 # by the watcher, never by a push. Four jobs in a row: version resolves the tag
-# and the three bases, build runs the release profile of reusable-build.yml,
-# gate verifies the three images by digest and writes the tags, release
+# and the base, build runs the release profile of reusable-build.yml, gate
+# verifies the image by digest and writes the tags, release
 # publishes the GitHub Release. :stable moves only when the dispatch asks for it
 # and the repository variable PROMOTE_STABLE is "true".
 name: Release
@@ -34,7 +34,7 @@ permissions: {}
 # later hand dispatch replaces the waiting one, while the watcher and the weekly
 # trigger hold as long as a release run is open.
 concurrency:
-  group: bazzite-mx-release
+  group: bazzite-63-release
   cancel-in-progress: false
 
 # Sets init.defaultBranch, so actions/checkout's `git init` prints no hint.
@@ -53,9 +53,7 @@ jobs:
       packages: read
     outputs:
       release_tag: ${{ steps.tag.outputs.release_tag }}
-      base_digest_bazzite: ${{ steps.bases.outputs.base_digest_bazzite }}
-      base_digest_bazzite_nvidia_open: ${{ steps.bases.outputs.base_digest_bazzite_nvidia_open }}
-      base_digest_bazzite_nvidia: ${{ steps.bases.outputs.base_digest_bazzite_nvidia }}
+      base_digest_bazzite_mx: ${{ steps.bases.outputs.base_digest_bazzite_mx }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -77,7 +75,7 @@ jobs:
           FORCED_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
-          env -u GITHUB_OUTPUT ./.github/scripts/resolve-base.sh bazzite \
+          env -u GITHUB_OUTPUT ./.github/scripts/resolve-base.sh bazzite-mx \
             > "$RUNNER_TEMP/base.env"
 
           if [ -n "$FORCED_TAG" ]; then
@@ -150,18 +148,11 @@ jobs:
           RELEASE_TAG: ${{ needs.version.outputs.release_tag }}
           PROMOTE_INPUT: ${{ inputs.promote_stable }}
           PROMOTE_VAR: ${{ vars.PROMOTE_STABLE }}
-          BASE_DIGEST_BAZZITE: ${{ needs.version.outputs.base_digest_bazzite }}
-          BASE_DIGEST_BAZZITE_NVIDIA_OPEN: >-
-            ${{ needs.version.outputs.base_digest_bazzite_nvidia_open }}
-          BASE_DIGEST_BAZZITE_NVIDIA: ${{ needs.version.outputs.base_digest_bazzite_nvidia }}
+          BASE_DIGEST_BAZZITE_MX: ${{ needs.version.outputs.base_digest_bazzite_mx }}
         run: |
           set -euo pipefail
 
-          args=(
-            --base "bazzite=$BASE_DIGEST_BAZZITE"
-            --base "bazzite-nvidia-open=$BASE_DIGEST_BAZZITE_NVIDIA_OPEN"
-            --base "bazzite-nvidia=$BASE_DIGEST_BAZZITE_NVIDIA"
-          )
+          args=(--base "bazzite-mx=$BASE_DIGEST_BAZZITE_MX")
 
           if [ "$PROMOTE_INPUT" = true ] && [ "$PROMOTE_VAR" = true ]; then
             args+=(--promote)

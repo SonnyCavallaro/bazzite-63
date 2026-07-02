@@ -120,7 +120,7 @@ read_base() {
     local coords
 
     if ! coords=$(base_coords "$flavour" "$dir"); then
-        print_error "cannot resolve ghcr.io/ublue-os/$flavour:stable: UNKNOWN, no dispatch"
+        print_error "cannot resolve ${BASE_REGISTRY}/$flavour:stable: UNKNOWN, no dispatch"
         return 1
     fi
 
@@ -176,7 +176,7 @@ compare_flavour() {
 
 # check <fixture dir>: one line per flavour, then the verdict (stale when any
 # flavour is, absent when every one is, current otherwise) and the reason built
-# from the three base digests; status 1 on the first UNKNOWN flavour.
+# from the base digests; status 1 on the first UNKNOWN flavour.
 check() {
     local dir=$1
     local flavour image_name base_digest flavour_state verdict
@@ -449,8 +449,6 @@ run_weekly() {
 # --- self-test ----------------------------------------------------------------
 
 SELF_TEST_DIGEST_A=sha256:9556db65991d57a03a7dc18e4ba28a686d8bcdcd6b61235aa69c8267bb22ff76
-SELF_TEST_DIGEST_B=sha256:c765d566dfbdbdc97808c5b6a00ba0f1b9a5295547490c4b01e1c2ddecf24060
-SELF_TEST_DIGEST_C=sha256:ca1d0b10df80ac8c6e60b8a3b0b7f0b6d4b2a1c9e8f7d6c5b4a3928170605040
 SELF_TEST_DIGEST_NEW=sha256:1111111111111111111111111111111111111111111111111111111111111111
 
 # self_test_write_ours <file> <base digest>: the inspect of one of our images
@@ -463,21 +461,14 @@ self_test_write_ours() {
         0 "$base_digest" > "$file"
 }
 
-# self_test_write_fixtures <dir>: the three bases and our three images, each
-# built on its base.
+# self_test_write_fixtures <dir>: the base and our image, built on it.
 self_test_write_fixtures() {
     local dir=$1
 
-    printf 'image_name=bazzite-mx\nbase_digest=%s\n' "$SELF_TEST_DIGEST_A" \
-        > "$dir/base-bazzite.env"
-    printf 'image_name=bazzite-mx-nvidia-open\nbase_digest=%s\n' "$SELF_TEST_DIGEST_B" \
-        > "$dir/base-bazzite-nvidia-open.env"
-    printf 'image_name=bazzite-mx-nvidia\nbase_digest=%s\n' "$SELF_TEST_DIGEST_C" \
-        > "$dir/base-bazzite-nvidia.env"
+    printf 'image_name=bazzite-63\nbase_digest=%s\n' "$SELF_TEST_DIGEST_A" \
+        > "$dir/base-bazzite-mx.env"
 
-    self_test_write_ours "$dir/ours-bazzite-mx.json" "$SELF_TEST_DIGEST_A"
-    self_test_write_ours "$dir/ours-bazzite-mx-nvidia-open.json" "$SELF_TEST_DIGEST_B"
-    self_test_write_ours "$dir/ours-bazzite-mx-nvidia.json" "$SELF_TEST_DIGEST_C"
+    self_test_write_ours "$dir/ours-bazzite-63.json" "$SELF_TEST_DIGEST_A"
 }
 
 # self_test_expect_check <dir> <pattern> <what> <failure>: check on the fixtures
@@ -499,33 +490,27 @@ self_test_expect_check() {
     fi
 }
 
-# self_test_verdicts <dir>: current images give current and the reason from the
-# three base digests; one stale image gives stale with its line; one absent
-# image still gives current; three absent images give absent.
+# self_test_verdicts <dir>: a current image gives current and the reason from
+# the base digest; a stale image gives stale with its line; an absent image
+# gives absent.
 self_test_verdicts() {
     local dir=$1
 
     self_test_expect_check "$dir" '^verdict=current$' \
-        "current images not reported current" "on current images"
-    self_test_expect_check "$dir" '^reason=upstream:9556db65991d\+c765d566dfbd\+ca1d0b10df80$' \
-        "reason not derived from the base digests" "on current images"
+        "current image not reported current" "on a current image"
+    self_test_expect_check "$dir" '^reason=upstream:9556db65991d$' \
+        "reason not derived from the base digest" "on a current image"
 
-    self_test_write_ours "$dir/ours-bazzite-mx.json" "$SELF_TEST_DIGEST_NEW"
+    self_test_write_ours "$dir/ours-bazzite-63.json" "$SELF_TEST_DIGEST_NEW"
     self_test_expect_check "$dir" '^verdict=stale$' \
         "stale image not reported stale" "on a stale image"
-    self_test_expect_check "$dir" '^bazzite-mx:stable stale: ' \
+    self_test_expect_check "$dir" '^bazzite-63:stable stale: ' \
         "stale line missing" "on a stale image"
 
-    rm "$dir/ours-bazzite-mx.json"
-    : > "$dir/ours-bazzite-mx.absent"
-    self_test_expect_check "$dir" '^verdict=current$' \
-        "absent+current not reported current" "with one absent image"
-
-    : > "$dir/ours-bazzite-mx-nvidia-open.absent"
-    : > "$dir/ours-bazzite-mx-nvidia.absent"
-    rm "$dir/ours-bazzite-mx-nvidia-open.json" "$dir/ours-bazzite-mx-nvidia.json"
+    rm "$dir/ours-bazzite-63.json"
+    : > "$dir/ours-bazzite-63.absent"
     self_test_expect_check "$dir" '^verdict=absent$' \
-        "three absent images not reported absent" "with every image absent"
+        "absent image not reported absent" "with the image absent"
 }
 
 # self_test_inspect_retry_note <dir>: a skopeo that retried and then succeeded
@@ -543,7 +528,7 @@ self_test_inspect_retry_note() {
         cat "$retry_manifest"
     }
 
-    if ! compare_flavour bazzite bazzite-mx "$SELF_TEST_DIGEST_A" "" > "$verdict_file" 2>&1 \
+    if ! compare_flavour bazzite-mx bazzite-63 "$SELF_TEST_DIGEST_A" "" > "$verdict_file" 2>&1 \
         || [ "$flavour_state" != current ] \
         || [ "$(grep -c '' "$verdict_file")" -ne 1 ]; then
         fail_self_test "a retried inspect gave no clean verdict:" \
@@ -559,12 +544,9 @@ self_test_bad_inputs() {
     local dir=$1
     local bad output status reason
 
-    rm "$dir/ours-bazzite-mx.absent" "$dir/ours-bazzite-mx-nvidia-open.absent" \
-        "$dir/ours-bazzite-mx-nvidia.absent"
-    self_test_write_ours "$dir/ours-bazzite-mx.json" "$SELF_TEST_DIGEST_A"
-    self_test_write_ours "$dir/ours-bazzite-mx-nvidia.json" "$SELF_TEST_DIGEST_C"
+    rm "$dir/ours-bazzite-63.absent"
     echo '{"Digest":"sha256:x","Labels":{"org.opencontainers.image.version":"44.20260902"}}' \
-        > "$dir/ours-bazzite-mx-nvidia-open.json"
+        > "$dir/ours-bazzite-63.json"
 
     for bad in label inspect base; do
         REFUSED=$((REFUSED + 1))
@@ -573,12 +555,12 @@ self_test_bad_inputs() {
                 reason='carries no org.opencontainers.image.base.digest label'
                 ;;
             inspect)
-                rm "$dir/ours-bazzite-mx-nvidia-open.json"
-                reason='cannot inspect ghcr.io/matrixdj96/bazzite-mx-nvidia-open:stable: UNKNOWN'
+                rm "$dir/ours-bazzite-63.json"
+                reason='cannot inspect ghcr.io/sonnycavallaro/bazzite-63:stable: UNKNOWN'
                 ;;
             base)
-                rm "$dir/base-bazzite-nvidia-open.env"
-                reason='cannot resolve ghcr.io/ublue-os/bazzite-nvidia-open:stable: UNKNOWN'
+                rm "$dir/base-bazzite-mx.env"
+                reason='cannot resolve ghcr.io/matrixdj96/bazzite-mx:stable: UNKNOWN'
                 ;;
         esac
 
@@ -599,12 +581,12 @@ self_test_bad_inputs() {
     }
     REFUSED=$((REFUSED + 1))
 
-    if output=$(ours_inspect bazzite-mx "" 2>&1); then
+    if output=$(ours_inspect bazzite-63 "" 2>&1); then
         fail_self_test "a failing inspect of our image answered"
     fi
 
     if [ "$(grep -c '' <<< "$output")" -ne 1 ] \
-        || ! grep -q '^watch-upstream: cannot inspect .*bazzite-mx:stable: .*no route' \
+        || ! grep -q '^watch-upstream: cannot inspect .*bazzite-63:stable: .*no route' \
             <<< "$output"; then
         fail_self_test "a failing inspect not folded into one line: ${output//$'\n'/ }"
     fi
@@ -614,7 +596,7 @@ self_test_bad_inputs() {
         return 1
     }
 
-    if ours_inspect bazzite-mx "" > /dev/null 2>&1; then
+    if ours_inspect bazzite-63 "" > /dev/null 2>&1; then
         status=0
     else
         status=$?
@@ -843,7 +825,7 @@ self_test() {
     self_test_weekly
     self_test_weekly_reads
 
-    echo "self-test ok: 4 verdicts derived, a retried inspect kept clean," \
+    echo "self-test ok: 3 verdicts derived, a retried inspect kept clean," \
         "$REFUSED bad inputs refused, 9 decisions and 9 weekly ones checked"
 }
 

@@ -7,8 +7,8 @@
 # build script writes there.
 #
 # Usage: 90-validate-repos.sh              run by build.sh after the last install
-#        90-validate-repos.sh --self-test  the gate on a fixture tree, one good
-#                                          layout and six bad ones
+#        90-validate-repos.sh --self-test  the gate on a fixture tree, two good
+#                                          layouts and six bad ones
 # Reads: $BUILD_STATE/repos.base.sha256 and repos.base.enabled. The self-test
 #   points REPOS_DIR, VENDORED_DIR, SNAPSHOT, ENABLED_BASE and ROOT at its
 #   fixture.
@@ -34,6 +34,11 @@ check_vendored_files() {
 
     for file in "$VENDORED_DIR"/*.repo; do
         name=$(basename "$file")
+
+        # The unmatched pattern itself: no vendored file, nothing to compare.
+        if [ ! -e "$file" ]; then
+            continue
+        fi
 
         if [ ! -f "$REPOS_DIR/$name" ]; then
             echo "FAIL: vendored $name is absent from $REPOS_DIR"
@@ -200,6 +205,21 @@ self_test_bad_layouts() {
     sed -i '/^priority=1$/d' "$repos/fedora.repo"
 }
 
+# A layer that vendors no repository: the vendored directory is empty, which
+# is no finding.
+self_test_no_vendored_file() {
+    local dir=$1
+
+    mv "$dir/vendored/docker-ce.repo" "$dir/docker-ce.repo"
+
+    if ! self_test_run "$dir"; then
+        fail_build "self-test: no vendored file fails: $(cat "$dir/out")"
+    fi
+
+    mv "$dir/docker-ce.repo" "$dir/vendored/"
+    echo "self-test: no vendored file passes"
+}
+
 self_test() {
     local dir
 
@@ -215,8 +235,9 @@ self_test() {
 
     echo "self-test: known-good layout passes"
     self_test_bad_layouts "$dir"
+    self_test_no_vendored_file "$dir"
 
-    echo "self-test ok: 1 good layout, 6 bad layouts refused"
+    echo "self-test ok: 2 good layouts, 6 bad layouts refused"
 }
 
 # --- main ---------------------------------------------------------------------

@@ -1,11 +1,11 @@
-# bazzite-mx: one recipe for the three flavours, which differ in the two
-# build args BASE_IMAGE and IMAGE_NAME, both mapped from the flavour name by
-# .github/scripts/resolve-base.sh, the base resolved to a digest
-# (docs/architecture.md § Build flow).
+# bazzite-63: one image layered on bazzite-mx, whose stable release is the
+# base, resolved to a digest and verified against base-cosign.pub by
+# .github/scripts/resolve-base.sh and verify-base.sh (docs/architecture.md §
+# Build flow).
 
-ARG BASE_IMAGE=ghcr.io/ublue-os/bazzite:stable
-ARG IMAGE_NAME=bazzite-mx
-ARG IMAGE_VENDOR=matrixdj96
+ARG BASE_IMAGE=ghcr.io/matrixdj96/bazzite-mx:stable
+ARG IMAGE_NAME=bazzite-63
+ARG IMAGE_VENDOR=sonnycavallaro
 
 # The version the image calls itself: the release tag, or "<base version>.dev"
 # for a sandbox or pre-flight build, both from image-labels.sh.
@@ -18,16 +18,6 @@ COPY build_files /build_files
 COPY system_files /system_files
 COPY cosign.pub /cosign.pub
 
-# --- kmod-builder: the out-of-tree modules ------------------------------------
-
-# The base image is the builder: it ships kernel-devel for its own kernel and
-# the toolchain, so no akmods carrier stage.
-FROM ${BASE_IMAGE} AS kmod-builder
-RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
-    --mount=type=tmpfs,dst=/tmp \
-    /ctx/build_files/kmods/build-kmods.sh --self-test \
-    && /ctx/build_files/kmods/build-kmods.sh
-
 # --- image: build, test, lint -------------------------------------------------
 
 FROM ${BASE_IMAGE} AS image
@@ -35,13 +25,10 @@ ARG IMAGE_NAME
 ARG IMAGE_VENDOR
 ARG VERSION
 
-# /kmods is a root-level mount point, never under /var: clean-stage empties
-# /var, which fails on a read-only bind mount. /run is a tmpfs because buildah
-# binds the host's resolv.conf under it and the path would otherwise stay in
-# the image (docs/gotchas.md § A networked RUN leaves
-# `/run/systemd/resolve/stub-resolv.conf` in the image).
+# /run is a tmpfs because buildah binds the host's resolv.conf under it and
+# the path would otherwise stay in the image (docs/gotchas.md § A networked
+# RUN leaves `/run/systemd/resolve/stub-resolv.conf` in the image).
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
-    --mount=type=bind,from=kmod-builder,source=/out,target=/kmods \
     --mount=type=cache,dst=/var/cache \
     --mount=type=cache,dst=/var/log \
     --mount=type=tmpfs,dst=/run \

@@ -27,8 +27,9 @@ set -euo pipefail
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
 
-# Packages whose presence proves three of the five vendored repositories were
-# installed.
+# Packages of three of the base's five vendored repositories, and with the
+# modules and the ntfs route below: what the image inherits from bazzite-mx,
+# still there on top of this layer.
 PROBE_PACKAGES="docker-ce code 1password"
 
 # --- the labels ---------------------------------------------------------------
@@ -113,7 +114,7 @@ for ko in msi-ec acpi_ec ntfs; do
     echo "$ko: $file, vermagic $KVER"
 done
 
-# The type ntfs (55-ntfsplus.sh): a mount of type ntfs reaches NTFSPLUS alone,
+# The type ntfs (bazzite-mx's 55-ntfsplus.sh): a mount of type ntfs reaches NTFSPLUS alone,
 # no generic mount.ntfs helper taking it to FUSE first.
 ntfs_route=$(modprobe -S "$KVER" -n --show-depends fs-ntfs 2>&1 | sed 's/ *$//' || true)
 
@@ -248,7 +249,7 @@ self_test_write_labels() {
     local file=$1
 
     printf '%s\n' \
-        "org.opencontainers.image.title=bazzite-mx" \
+        "org.opencontainers.image.title=bazzite-63" \
         "org.opencontainers.image.version=44.20260902.dev" \
         "ostree.linux=7.2.1-ogc4.1.fc44.x86_64" \
         "containers.bootc=1" > "$file"
@@ -264,7 +265,7 @@ self_test_check_labels() {
     self_test_write_labels "$good"
     labels_json=$(
         cat << 'EOF'
-{"org.opencontainers.image.title":"bazzite-mx",
+{"org.opencontainers.image.title":"bazzite-63",
  "org.opencontainers.image.version":"44.20260902.dev",
  "ostree.linux":"7.2.1-ogc4.1.fc44.x86_64",
  "containers.bootc":"1"}
@@ -336,7 +337,7 @@ EOF
     export STUB_IMAGE_TREE=$dir/image STUB_UMOUNT_LOG=$dir/umount.log
     : > "$STUB_UMOUNT_LOG"
 
-    labels='{"org.opencontainers.image.title":"bazzite-mx",'
+    labels='{"org.opencontainers.image.title":"bazzite-63",'
     labels+='"org.opencontainers.image.version":"44.20260902.dev",'
     labels+='"ostree.linux":"7.2.1-ogc4.1.fc44.x86_64","containers.bootc":"1",'
     labels+='"io.buildah.version":"1.43.2"}'

@@ -40,7 +40,7 @@ set -euo pipefail
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
 
-VENDOR=matrixdj96
+VENDOR=sonnycavallaro
 COSIGN_PUB=$(dirname "$0")/../../cosign.pub
 
 WORK_DIR=$(mktemp -d)
@@ -212,7 +212,7 @@ base_of() {
     name=$(label_of "$manifest_json" org.opencontainers.image.base.name)
     digest=$(label_of "$manifest_json" org.opencontainers.image.base.digest)
 
-    if [[ ! "$name" =~ ^ghcr\.io/ublue-os/[a-z-]+:stable$ ]] \
+    if [[ ! "$name" =~ ^ghcr\.io/matrixdj96/[a-z-]+:stable$ ]] \
         || [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
         print_error "no base labels on the manifest: name '$name', digest '$digest'"
         return 1
@@ -249,7 +249,7 @@ check_base() {
 }
 
 # negative_controls <base reference>: the flavour's own base, signed by
-# ublue-os, is rejected by our key and by our attestation lookup. For cosign
+# bazzite-mx, is rejected by our key and by our attestation lookup. For cosign
 # only a signature-class rejection counts: a network error also exits non-zero
 # and would pass a control that saw nothing. The attestation half reads the
 # status alone: gh prints no stable line for "no attestation".
@@ -475,8 +475,8 @@ tag_release_image() {
 }
 
 # promote_verified_images: :stable onto every image that passed; exits 1 on a
-# copy that fails. It runs only once every image has: a flavour refused earlier
-# leaves no sibling promoted on its own (docs/workflow.md § The release run).
+# copy that fails. It runs only once every image has passed: an image refused
+# earlier leaves nothing promoted (docs/workflow.md § The release run).
 promote_verified_images() {
     local i
 
@@ -590,17 +590,17 @@ SELF_TEST_BASE_DIGEST=sha256:9556db65991d57a03a7dc18e4ba28a686d8bcdcd6b61235aa69
 SELF_TEST_OTHER_DIGEST=sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 SELF_TEST_MANIFEST=""
 
-# self_test_write_manifest: SELF_TEST_MANIFEST, the manifest of a bazzite-mx
+# self_test_write_manifest: SELF_TEST_MANIFEST, the manifest of a bazzite-63
 # image with every label the gate reads.
 self_test_write_manifest() {
     SELF_TEST_MANIFEST=$(
         cat << EOF
 {"Digest":"$SELF_TEST_IMAGE_DIGEST","Labels":{
- "org.opencontainers.image.title":"bazzite-mx",
- "org.opencontainers.image.vendor":"matrixdj96",
+ "org.opencontainers.image.title":"bazzite-63",
+ "org.opencontainers.image.vendor":"sonnycavallaro",
  "org.opencontainers.image.version":"$SELF_TEST_TAG",
  "org.opencontainers.image.revision":"$SELF_TEST_REVISION",
- "org.opencontainers.image.base.name":"ghcr.io/ublue-os/bazzite:stable",
+ "org.opencontainers.image.base.name":"ghcr.io/matrixdj96/bazzite-mx:stable",
  "org.opencontainers.image.base.digest":"$SELF_TEST_BASE_DIGEST"}}
 EOF
     )
@@ -638,33 +638,33 @@ self_test_labels_refused() {
 self_test_labels() {
     local changed
 
-    if ! check_labels "$SELF_TEST_MANIFEST" bazzite-mx "$SELF_TEST_TAG" "$SELF_TEST_REVISION"; then
+    if ! check_labels "$SELF_TEST_MANIFEST" bazzite-63 "$SELF_TEST_TAG" "$SELF_TEST_REVISION"; then
         fail_self_test "matching labels refused"
     fi
 
-    if ! check_labels "$SELF_TEST_MANIFEST" bazzite-mx "$SELF_TEST_TAG" ""; then
+    if ! check_labels "$SELF_TEST_MANIFEST" bazzite-63 "$SELF_TEST_TAG" ""; then
         fail_self_test "labels refused with the revision check off"
     fi
 
     changed=$(jq -c '.Labels["org.opencontainers.image.version"] = "44.20260902"' \
         <<< "$SELF_TEST_MANIFEST")
-    self_test_labels_refused "$changed" bazzite-mx "$SELF_TEST_REVISION"
+    self_test_labels_refused "$changed" bazzite-63 "$SELF_TEST_REVISION"
 
-    self_test_labels_refused "$SELF_TEST_MANIFEST" bazzite-mx "$SELF_TEST_WRONG_REVISION"
+    self_test_labels_refused "$SELF_TEST_MANIFEST" bazzite-63 "$SELF_TEST_WRONG_REVISION"
 
-    changed=$(jq -c '.Labels["org.opencontainers.image.title"] = "Bazzite"' \
+    changed=$(jq -c '.Labels["org.opencontainers.image.title"] = "bazzite-mx"' \
         <<< "$SELF_TEST_MANIFEST")
-    self_test_labels_refused "$changed" bazzite-mx "$SELF_TEST_REVISION"
+    self_test_labels_refused "$changed" bazzite-63 "$SELF_TEST_REVISION"
 
-    changed=$(jq -c '.Labels["org.opencontainers.image.vendor"] = "ublue-os"' \
+    changed=$(jq -c '.Labels["org.opencontainers.image.vendor"] = "matrixdj96"' \
         <<< "$SELF_TEST_MANIFEST")
-    self_test_labels_refused "$changed" bazzite-mx "$SELF_TEST_REVISION"
+    self_test_labels_refused "$changed" bazzite-63 "$SELF_TEST_REVISION"
 }
 
 # self_test_base_of: the base read off the labels; a manifest without the base
 # digest and one naming a foreign base refused.
 self_test_base_of() {
-    local expected="ghcr.io/ublue-os/bazzite@$SELF_TEST_BASE_DIGEST"
+    local expected="ghcr.io/matrixdj96/bazzite-mx@$SELF_TEST_BASE_DIGEST"
     local no_digest foreign_base bad
 
     if [ "$(base_of "$SELF_TEST_MANIFEST")" != "$expected" ]; then
@@ -739,7 +739,7 @@ self_test_inspect_retry_note() {
         echo "$SELF_TEST_MANIFEST"
     }
 
-    if ! output=$(inspect_ref "$REGISTRY/bazzite-mx:$SELF_TEST_TAG" 2> "$error_file"); then
+    if ! output=$(inspect_ref "$REGISTRY/bazzite-63:$SELF_TEST_TAG" 2> "$error_file"); then
         fail_self_test "a skopeo that retried and succeeded was read as a failure"
     fi
 
@@ -789,8 +789,8 @@ self_test_cosign_rejected() {
 # a base carrying an attestation of this repository and a base cosign could not
 # reach are refused.
 self_test_verifiers() {
-    local image=$REGISTRY/bazzite-mx@$SELF_TEST_IMAGE_DIGEST
-    local base=$BASE_REGISTRY/bazzite@$SELF_TEST_BASE_DIGEST
+    local image=$REGISTRY/bazzite-63@$SELF_TEST_IMAGE_DIGEST
+    local base=$BASE_REGISTRY/bazzite-mx@$SELF_TEST_BASE_DIGEST
     local rejection='Error: no matching signatures: error verifying bundle'
     local cosign_error="" gh_status=0 output
 
@@ -874,7 +874,7 @@ self_test_copy_tag() {
         :
     }
 
-    if ! copy_tag bazzite-mx "$SELF_TEST_IMAGE_DIGEST" "$SELF_TEST_TAG" > /dev/null; then
+    if ! copy_tag bazzite-63 "$SELF_TEST_IMAGE_DIGEST" "$SELF_TEST_TAG" > /dev/null; then
         fail_self_test "a copy skopeo wrote refused"
     fi
 
@@ -884,7 +884,7 @@ self_test_copy_tag() {
     }
     REFUSED=$((REFUSED + 1))
 
-    if copy_tag bazzite-mx "$SELF_TEST_IMAGE_DIGEST" "$SELF_TEST_TAG" > /dev/null 2>&1; then
+    if copy_tag bazzite-63 "$SELF_TEST_IMAGE_DIGEST" "$SELF_TEST_TAG" > /dev/null 2>&1; then
         fail_self_test "a copy skopeo failed reported as tagged"
     fi
 
@@ -900,7 +900,7 @@ self_test_base_refused() {
 
     REFUSED=$((REFUSED + 1))
 
-    if check_base bazzite "$version_job_digest" ghcr.io/ublue-os/bazzite "$build_digest" \
+    if check_base bazzite-mx "$version_job_digest" ghcr.io/matrixdj96/bazzite-mx "$build_digest" \
         "$manifest_json" > /dev/null 2>&1; then
         fail_self_test "disagreeing bases $REFUSED accepted"
     fi
@@ -911,7 +911,7 @@ self_test_base_refused() {
 self_test_check_base() {
     local relabelled
 
-    if ! check_base bazzite "$SELF_TEST_BASE_DIGEST" ghcr.io/ublue-os/bazzite \
+    if ! check_base bazzite-mx "$SELF_TEST_BASE_DIGEST" ghcr.io/matrixdj96/bazzite-mx \
         "$SELF_TEST_BASE_DIGEST" "$SELF_TEST_MANIFEST" > /dev/null; then
         fail_self_test "three matching bases refused"
     fi
@@ -934,7 +934,7 @@ self_test_base_set_refused() {
     REFUSED=$((REFUSED + 1))
 
     if output=$(release --release-tag "$SELF_TEST_TAG" --revision "$SELF_TEST_REVISION" \
-        "$good" "$good" "$good" "$@" 2>&1); then
+        "$good" "$@" 2>&1); then
         fail_self_test "--base set $REFUSED accepted"
     fi
 
@@ -943,39 +943,24 @@ self_test_base_set_refused() {
     fi
 }
 
-# self_test_release_arguments <good>: a missing, incomplete, malformed or
-# unknown --base set, three env files of one flavour and one env file short
-# refused before any registry call.
+# self_test_release_arguments <good>: a missing, malformed or unknown --base
+# set and one env file too many refused before any registry call. A flavour
+# given twice is caught by the count first while there is one flavour.
 self_test_release_arguments() {
     local good=$1
     local base=$SELF_TEST_BASE_DIGEST
     local expected_count output
 
     self_test_base_set_refused "$good"
+    self_test_base_set_refused "$good" --base bazzite-mx=sha256:short
     self_test_base_set_refused "$good" --base "bazzite=$base"
-    self_test_base_set_refused "$good" --base bazzite=sha256:short \
-        --base "bazzite-nvidia-open=$base" --base "bazzite-nvidia=$base"
-    self_test_base_set_refused "$good" --base "bazzite-deck=$base" \
-        --base "bazzite-nvidia-open=$base" --base "bazzite-nvidia=$base"
-
-    REFUSED=$((REFUSED + 1))
-
-    if output=$(release --release-tag "$SELF_TEST_TAG" --revision "$SELF_TEST_REVISION" \
-        --base "bazzite=$base" --base "bazzite-nvidia-open=$base" --base "bazzite-nvidia=$base" \
-        "$good" "$good" "$good" 2>&1); then
-        fail_self_test "three env files of one flavour accepted"
-    fi
-
-    if ! grep -q 'given twice, already in' <<< "$output"; then
-        fail_self_test "the repeated flavour refused for another reason: $output"
-    fi
 
     expected_count=$(wc -w <<< "$PACKAGES")
     REFUSED=$((REFUSED + 1))
 
     if output=$(release --release-tag "$SELF_TEST_TAG" --revision "$SELF_TEST_REVISION" \
-        "$good" "$good" 2>&1); then
-        fail_self_test "two env files accepted for $expected_count flavours"
+        --base "bazzite-mx=$base" "$good" "$good" 2>&1); then
+        fail_self_test "two env files accepted for $expected_count flavour"
     fi
 
     if ! grep -q "expected $expected_count env files" <<< "$output"; then
@@ -996,7 +981,7 @@ self_test_stub_registry() {
         local name=${1#"${REGISTRY}/"}
 
         name=${name%%[@:]*}
-        jq -c --arg name "$name" --arg base "${BASE_REGISTRY}/${name/bazzite-mx/bazzite}:stable" \
+        jq -c --arg name "$name" --arg base "${BASE_REGISTRY}/bazzite-mx:stable" \
             '.Labels["org.opencontainers.image.title"] = $name
              | .Labels["org.opencontainers.image.base.name"] = $base' <<< "$SELF_TEST_MANIFEST"
     }
@@ -1035,8 +1020,7 @@ self_test_stubbed_promotion() {
     local base=$SELF_TEST_BASE_DIGEST
     local flavour last_tag_copy first_stable_copy output failing
     local arguments=(--release-tag "$SELF_TEST_TAG" --revision "$SELF_TEST_REVISION"
-        --base "bazzite=$base" --base "bazzite-nvidia-open=$base" --base "bazzite-nvidia=$base"
-        "$dir/bazzite.env" "$dir/bazzite-nvidia-open.env" "$dir/bazzite-nvidia.env")
+        --base "bazzite-mx=$base" "$dir/bazzite-mx.env")
 
     for flavour in $FLAVOURS; do
         self_test_write_env "$dir/$flavour.env" "$flavour"
@@ -1048,11 +1032,11 @@ self_test_stubbed_promotion() {
     : > "$calls"
 
     if ! (release "${arguments[@]}" --promote) > /dev/null; then
-        fail_self_test "the stubbed release refused three good images"
+        fail_self_test "the stubbed release refused a good image"
     fi
 
-    if [ "$(grep -c ':stable$' "$calls")" -ne 3 ]; then
-        fail_self_test "expected 3 promotions, got: $(tr '\n' ' ' < "$calls")"
+    if [ "$(grep -c ':stable$' "$calls")" -ne 1 ]; then
+        fail_self_test "expected 1 promotion, got: $(tr '\n' ' ' < "$calls")"
     fi
 
     last_tag_copy=$(grep -n ":${SELF_TEST_TAG}\$" "$calls" | tail -n1 | cut -d: -f1 || true)
@@ -1069,7 +1053,7 @@ self_test_stubbed_promotion() {
     : > "$calls"
 
     if ! (release "${arguments[@]}") > /dev/null; then
-        fail_self_test "the stubbed release without --promote refused three good images"
+        fail_self_test "the stubbed release without --promote refused a good image"
     fi
 
     if grep -q ':stable$' "$calls"; then
@@ -1079,35 +1063,35 @@ self_test_stubbed_promotion() {
     REFUSED=$((REFUSED + 1))
     : > "$calls"
 
-    if (STUB_REFUSED=bazzite-mx-nvidia-open release "${arguments[@]}" --promote) \
+    if (STUB_REFUSED=bazzite-63 release "${arguments[@]}" --promote) \
         > /dev/null 2>&1; then
-        fail_self_test "a refused second image did not stop the release"
+        fail_self_test "a refused image did not stop the release"
     fi
 
     if grep -q ':stable$' "$calls"; then
-        fail_self_test ":stable moved with the second image refused: $(tr '\n' ' ' < "$calls")"
+        fail_self_test ":stable moved with the image refused: $(tr '\n' ' ' < "$calls")"
     fi
 
     : > "$calls"
 
     if ! (promote --release-tag "$SELF_TEST_TAG") > /dev/null; then
-        fail_self_test "the stubbed promote refused three good images"
+        fail_self_test "the stubbed promote refused a good image"
     fi
 
-    if [ "$(grep -c ':stable$' "$calls")" -ne 3 ]; then
-        fail_self_test "expected 3 promotions by promote, got: $(tr '\n' ' ' < "$calls")"
+    if [ "$(grep -c ':stable$' "$calls")" -ne 1 ]; then
+        fail_self_test "expected 1 promotion by promote, got: $(tr '\n' ' ' < "$calls")"
     fi
 
     REFUSED=$((REFUSED + 1))
     : > "$calls"
 
-    if (STUB_REFUSED=bazzite-mx-nvidia-open promote --release-tag "$SELF_TEST_TAG") \
+    if (STUB_REFUSED=bazzite-63 promote --release-tag "$SELF_TEST_TAG") \
         > /dev/null 2>&1; then
-        fail_self_test "a refused second image did not stop promote"
+        fail_self_test "a refused image did not stop promote"
     fi
 
     if grep -q ':stable$' "$calls"; then
-        fail_self_test "promote moved :stable with the second image refused:" \
+        fail_self_test "promote moved :stable with the image refused:" \
             "$(tr '\n' ' ' < "$calls")"
     fi
 
@@ -1128,7 +1112,8 @@ self_test_stubbed_promotion() {
 
     REFUSED=$((REFUSED + 1))
 
-    if (release "${arguments[@]}" --base "bazzite=$SELF_TEST_OTHER_DIGEST") > /dev/null 2>&1; then
+    if (release "${arguments[@]}" --base "bazzite-mx=$SELF_TEST_OTHER_DIGEST") \
+        > /dev/null 2>&1; then
         fail_self_test "the release went on past disagreeing bases"
     fi
 
@@ -1173,7 +1158,7 @@ self_test() {
     good=$dir/good.env
     self_test_write_manifest
 
-    self_test_write_env "$good" bazzite
+    self_test_write_env "$good" bazzite-mx
 
     self_test_labels
     self_test_base_of

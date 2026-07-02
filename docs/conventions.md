@@ -1,10 +1,9 @@
 # Conventions
 
-Rules for writing build scripts, tests, ujust recipes, boot hooks, CI and prose in this repo. A
+Rules for writing build scripts, tests, CI and prose in this repo. A
 rule a file enforces names that file; the rest is checked by hand at review.
 
-Contents: Bash (Form) · build scripts · ujust recipes · boot hooks · tests · positive control ·
-CI · prose · commits.
+Contents: Bash (Form) · build scripts · tests · positive control · CI · prose · commits.
 
 ## Bash
 
@@ -14,8 +13,7 @@ CI · prose · commits.
   `shfmt --indent 4 --case-indent --binary-next-line --space-redirects`. `-x -P SCRIPTDIR`
   follows the sourced libraries, so a variable a library sets is not reported as undefined.
 - The `lint` job of `build.yml` runs both over every `.sh` git tracks plus every file carrying
-  the repo's shebang, which is how the extensionless helpers under `system_files/usr/libexec/`
-  are covered.
+  the repo's shebang.
 - The shfmt release is fixed at Fedora 44's, so the hook and the lint job cannot disagree on a
   diff. CI installs it in `quay.io/fedora/fedora:44`. The edit hook
   `.claude/hooks/lint-edit.sh` uses the host binary only when its minor matches, and the same
@@ -29,12 +27,12 @@ CI · prose · commits.
 ### Form
 
 A script is read by a person before bash runs it, and the person is not the author. These rules
-hold for every file the lint job covers: build scripts, libraries, tests, the kmod builder, the
-libexec helpers, the boot hooks, the CI scripts and the edit hook. They hold in the same spirit
-for every other file of the repo: a workflow, the Containerfile, a justfile, a Plasma update
-script, a `.repo` or `.conf` file gets the same blank lines between its steps, the same 100
-columns and comments that carry a reason, never a restatement. Each rule carries one
-before/after pair, the after from the repo. The shapes and the width are checked by
+hold for every file the lint job covers: build scripts, libraries, tests, the libexec helpers,
+the login hook, the CI scripts and the edit hook. They hold in the same spirit for every other
+file of the repo: a workflow, the Containerfile, a justfile, a `.repo`
+or `.conf` file gets the same blank lines between its steps, the same 100 columns and comments
+that carry a reason, never a restatement. Each rule carries one before/after pair, the after
+from bazzite-mx, whose scripts this one shares. The shapes and the width are checked by
 `.github/scripts/check-form.sh`, which the edit hook runs on every shell file an edit touches
 and the `lint` job on the whole shell catalogue; a line that holds a banned shape as data ends
 in `# form: literal`. The rest is checked by hand at review, like § Prose.
@@ -161,10 +159,7 @@ in `# form: literal`. The rest is checked by hand at review, like § Prose.
   ```
 
 - **A line stops at 100 columns.** A long command breaks after `\` with one argument per line;
-  a long pattern or message goes into a variable named for what it holds. The one exception is
-  the description comment above a `.just` recipe, which `just --list` prints whole from that
-  single line ([`gotchas.md`](gotchas.md) § A recipe's description is the LAST comment line
-  above it).
+  a long pattern or message goes into a variable named for what it holds.
 
   ```bash
   # before (123 columns)
@@ -181,7 +176,7 @@ in `# form: literal`. The rest is checked by hand at review, like § Prose.
   the host helpers (prints `ERROR:`, the command stops) and in the CI scripts
   (`.github/scripts/lib.sh`, prints `<script>: …`, the script stops), where `print_error` prints
   the same line and returns 1 for a function a caller runs under `if`. A function a caller runs
-  under `if` is named as the question its status answers: `module_loaded`, `has_recipe`.
+  under `if` is named as the question its status answers: `module_loaded`.
 
   ```bash
   # before
@@ -221,8 +216,7 @@ in `# form: literal`. The rest is checked by hand at review, like § Prose.
   # fstab_verify_answers <fstab>: findmnt gave its verdict on that table, the
   # summary line it ends with (…). A findmnt that never ran prints
   # nothing, one that died on a malformed row prints its diagnostic and no
-  # summary (docs/gotchas.md § `findmnt --verify` reports an unplugged `nofail`
-  # volume as an error); a caller judging a rewrite refuses both instead of
+  # summary; a caller judging a rewrite refuses both instead of
   # reading an empty error set as a clean one.
   ```
 
@@ -266,120 +260,34 @@ known-bad still red after it. The rules above add to the earlier bullets of this
 
 - One script per feature, `NN-<feature>.sh` under `build_files/`, sourcing `lib/env.sh` first.
   `build.sh` runs them in version order and stops at the first failure.
-- Third-party packages come from a `.repo` vendored under `system_files/etc/yum.repos.d/` with
-  every section `enabled=0`, installed with `install_from_repo <section> <pkg>...`, which
-  enables the section for one dnf5 transaction. A COPR the base already ships disabled
-  (`ublue-os/packages`) goes through the same `install_from_repo`, with its
-  `copr:copr.fedorainfracloud.org:<owner>:<project>` id, as bazzite-dx does; the base's file is
-  never touched.
 - The gate `90-validate-repos.sh` runs after the installs and refuses a vendored file that is
   absent, differs from the vendored copy or carries `enabled=1`; a base repository file the
   build modified; any other added file left enabled; and an enabled set, as `dnf5 repolist`
   reports it, that differs from the base's. It reads the snapshots `00-prep.sh` recorded, so a
   file under a name nobody listed is caught too.
-- The enablement lives in the `.repo` file, never in `dnf5 config-manager setopt`. `setopt`
-  writes to an override file under `/etc/dnf/repos.override.d/` and leaves the repository file
-  untouched (`man dnf5-config-manager`), so the state would sit in a file the gate's byte
-  comparison never reads; its `dnf5 repolist` comparison is what fails the build on it.
-  1Password forces the rule: its `%post` rewrites the vendored file with `enabled=1`, the build
-  puts the vendored copy back, and the gate proves it.
-- Nothing is pinned to a release for vendor RPMs and GitHub releases: the build resolves the
-  latest, and a pin enters only against an observed problem, with the observation cited. Two
-  exceptions. The base image is pinned to the digest CI resolved (`resolve-base.sh`), so the
-  three flavours build against a known base; the out-of-tree kernel modules are pinned to a
-  full commit, so a rebuild against a new base kernel cannot also change the module's source.
-  pahole is neither latest nor pinned: the kmod-builder stage builds it from the tag the
-  kernel's `CONFIG_PAHOLE_VERSION` names, so it moves with the base kernel.
-- A vendor's signing key is pinned on purpose: the armored key ships under
-  `system_files/etc/pki/rpm-gpg/`, the `.repo` reads it with `gpgkey=file://`, and the feature
-  script calls `assert_key_fingerprint` before the install. The fingerprint is pinned once in
-  the `KEY_FPR` table of `lib/gpg.sh`, with the URL each key was read from, so a rotation is a
-  reviewable diff and never a download at build time. The one exception is the base's own
-  `ublue-os/packages` COPR file, used as the base ships it, its key read over https as
-  bazzite-dx reads it.
-- A package that unpacks under `/opt` needs `mkdir -p /var/opt` before its install: `/opt` is a
-  symlink to `var/opt` and the directory does not exist in a build. Nothing else is needed,
-  because `80-fix-opt.sh` moves every `/var/opt/<name>` to `/usr/lib/opt/<name>` and writes one
-  tmpfiles `L+` line per name to recreate the link on the host. Paths baked into the
-  application keep their `/opt/...` form, so its smoke test checks them with `readlink` and not
-  with `-x`: the link dangles in the build.
-- An out-of-tree kernel module is a `build_files/kmods/<name>/source.env`, built by the
-  kmod-builder stage against the base's own `kernel-devel`. It carries `URL`, the full
-  `COMMIT`, `KO_NAME`, `KO_BUILD_PATH`, `KO_VERSION`, and `KO_BUILD_ARGS` when kbuild needs a
-  config symbol forced on the make line. The builder proves the checkout is the pinned commit.
-  Then `assert_module` requires a readable module stamped for the image's kernel and, when
-  `KO_VERSION` is set, that `MODULE_VERSION`. The modules are unsigned: when modprobe refuses
-  one, the helper's `ERROR:` line carries modprobe's own reason and names Secure Boot as the
-  cause of a rejected key.
+- Nothing is pinned to a release for vendor RPMs: the build resolves the latest, and a pin
+  enters only against an observed problem, with the observation cited. The exception is the
+  base image, pinned to the digest CI resolved (`resolve-base.sh`) and verified against
+  `base-cosign.pub` (`verify-base.sh`), so the build reads the base bazzite-mx signed and not
+  whatever the tag points at a minute later.
 - A package `%post` runs in the build, not on the host. Read it with `rpm -qp --scripts` before
   the package enters a script, and handle every effect that belongs to a host explicitly. A
   `groupadd` in a `%post` lands in `/etc/group`; `95-clean-stage.sh` relocates the accounts to
   `/usr/lib/passwd` and `/usr/lib/group`, where NSS reads them, so a host's `/etc` merge cannot
-  drop them. Membership for humans is a boot hook's job.
+  drop them. Membership for humans is the base's boot hook's job.
+- A script that edits a file the base ships (a helper, a list, a justfile) first requires every
+  line it edits to be there exactly once and fails the build otherwise, and its smoke test
+  checks the edit landed: a base that moved the line stops the build instead of shipping an
+  unpatched file. `12-host-helpers.sh` is the shape.
 - Writes to files the base image ships end on a fresh inode (`mv`, `install`, `sed -i`,
   `rsync`) where it costs nothing. What a runner change would reopen is in
   [`gotchas.md`](gotchas.md) § Torn writeback on a 6.17-azure runner kernel.
-
-## ujust recipes
-
-- A recipe that replaces one of Bazzite's ships in a file with the same name under
-  `system_files/usr/share/ublue-os/just/`. The base justfile imports the path, so our file
-  takes the base file's place and nothing else changes. It only works when the base file holds
-  exactly the recipes we replace, and `70-justfile.sh` refuses the build when the base's recipe
-  set, recorded by `00-prep.sh` before the copy, differs from ours.
-- When the base file holds other recipes too, the recipe goes in the `OVERRIDES` list of
-  `70-justfile.sh`. That cuts the recipe out of the base file, proves the removal changed
-  nothing else and proves our file defines the name. `install-jetbrains-toolbox` is the one
-  entry.
-- Our own recipes live in `95-bazzite-mx.just`, imported last into the master justfile on a
-  fresh inode. With `allow-duplicate-recipes` the earlier import wins
-  ([`gotchas.md`](gotchas.md) § `just`: the earlier import wins on a duplicate recipe name), so
-  `70-justfile.sh` fails the build on any name defined in two files and checks that the master
-  justfile exposes every name of ours and still parses.
-- A recipe that needs more than a few lines of logic calls a helper under
-  `system_files/usr/libexec/bazzite-mx-<x>`, the recipe staying a thin front: the `help` text,
-  the not-as-root check, `sudo` where root is needed, the call. A recipe that prints a line
-  after the call prints it only when the call succeeded, so a failed helper is the recipe's own
-  status (`tests/70` runs those recipes as `nobody` against a stub). The helper takes fixture
-  knobs (`ROOT=`, `FIXTURE=`, `DMI_VENDOR_FILE=`, a `file://` feed) so the smoke test runs the
-  real code, positive and known-bad, inside the build.
-- Recipes are `just --unstable --fmt --check` clean and start with
-  `source /usr/lib/ujust/ujust.sh`, which brings the colours and `Choose`. The `help` action
-  comes before the not-as-root check so the smoke test can run the recipe body in the build.
-  Two guards: the `lint` job checks every tracked `.just` file with Fedora 44's `just`, the
-  release the image ships, and `70-justfile.sh` checks ours again inside the build.
-- What the image already does, a unit enabled or a package installed or a module option, is not
-  redone by a recipe: the recipe reports it under `status` and does only what needs the host,
-  an opt-in module or a per-user choice.
-
-## Boot hooks
-
-Scripts under `system_files/usr/share/ublue-os/system-setup.hooks.d/` run as root at every boot
-through `ublue-system-setup.service`, before user sessions. The dispatcher is a loop of
-`bash $script` and reads no exit status, which sets three rules:
-
-- a hook converges on every boot, checking first and changing only what differs. It does not
-  stamp a version with libsetup's `version-script`, which records the run before the body
-  executes, so it never repeats a failed run nor reaches a user created later;
-- a hook that cannot do its job prints one `ERROR:` line to stderr and exits 1, because the
-  journal line is the only signal it can leave;
-- a hook takes a fixture prefix (`usermod --prefix`, files under a temporary tree) so its smoke
-  test exercises the real script, positive and known-bad, without touching the image.
-
-User hooks (`user-setup.hooks.d/`, `ublue-user-setup.service`) follow the same three rules
-through the same kind of dispatcher. Their check must be cheap enough for every login, so it
-reads a file and never spawns the application. Their fixture is `HOME` plus a stub binary first
-in `PATH`.
 
 ## Tests
 
 - `tests/NN-<feature>.sh` with the same stem as the build script. `tests/run.sh` refuses a
   build script without a test and a test without a build script, so a feature cannot land
   without its test.
-- `tests/helpers/<name>.sh` for the helper `system_files/usr/libexec/bazzite-mx-<name>`, when
-  its cases need fixtures rather than the helper's own `--self-test`. The runner runs both
-  classes and counts them in one `tests: N passed` line, and its guard holds one way here: a
-  test must name an installed helper, a helper need not have a test.
 - A test prints `OK: <what>` or `FAIL: <what>` per check and exits 0. The runner fails the
   build on any `FAIL:` line and on a non-zero exit. It also fails on a test that printed no
   `OK:` line, which is what catches a test whose checks never ran.
@@ -388,9 +296,8 @@ in `PATH`.
   build had, and a test that touches dnf5 cannot leave a log behind for `bootc container lint`.
 - A check several tests make is a function of `tests/lib.sh`, sourced first: `check_pkg`,
   `check_unit_state`, `check_rpm_key`, `check_key_fingerprint`, `check_repo_reads_key`,
-  `check_self_test`, `check_desktop_file`, `check_recipe_help`, `check_flatpak_deny`,
-  `check_portal_group_removed`, and `on_one_line` for a probe's output quoted in a `FAIL:`
-  line. A check made once stays in its test.
+  `check_self_test`, `check_desktop_file`, `check_recipe_help`, and `on_one_line` for a
+  probe's output quoted in a `FAIL:` line. A check made once stays in its test.
 
 ## Positive control
 
@@ -409,8 +316,7 @@ that file" is no owner of a `declare -r` name the base image's libraries set.
 
 An assertion also has to be able to go red, and the shape that quietly cannot is not the one a
 reader expects. A count is safe or not by where its subject comes from, never by being a count:
-`tests/22-virtualization.sh` walks the `/var` directories rpm lists for the libvirt and swtpm
-packages, with the mode, user and group of each, and catches a missing one, while a check that
+a walk over a list rpm or the test itself holds catches a missing item, while a check that
 counts or walks a list read out of the very thing it tests shrinks with the defect and stays
 green: a required number of `OK:` lines lets a check stop reporting unnoticed, and a group list
 read from the hook's own summary shrinks with the hook. Name what a count stands for. The same
@@ -424,9 +330,8 @@ Where each one runs:
 | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `.github/scripts/*.sh`                                    | `lint` job, `build.yml`                                                                                                                                   |
 | `check-form.sh`                                           | `lint` job, `build.yml`, which then runs the check itself over the whole shell catalogue; `.claude/hooks/lint-edit.sh` runs it on every edited shell file |
-| `kmods/build-kmods.sh`                                    | kmod-builder stage, before the real build                                                                                                                 |
-| `70-justfile.sh`, `80-fix-opt.sh`, `90-validate-repos.sh` | the test RUN, called by their paired test                                                                                                                 |
-| `bazzite-mx-migrate`                                      | the test RUN, called by `tests/70-justfile.sh`; its cases live here, so it has no file under `tests/helpers/`                                             |
+| `90-validate-repos.sh`                                    | the test RUN, called by its paired test                                                                                                                   |
+| `bazzite-mx-migrate`, the base's                          | the test RUN, called by `tests/12-host-helpers.sh`                                                                                                        |
 | `tests/run.sh`                                            | `lint` job, `build.yml`, after the CI scripts                                                                                                             |
 
 ## CI
@@ -436,11 +341,11 @@ Where each one runs:
   `Install Cosign`). Workflow `name:` Title Case. A job name is the phase in one Title Case
   word: `Lint`, `Build`, `Version`, `Gate`, `Release`, `Prune`, `Promote`, `Sign`, `Trigger`,
   `Compare`; the matrix job of the reusable build is named by its flavour, so a run reads
-  `Build / bazzite-nvidia`. A step name is Title Case, verb + object, no article, a tool in its
+  `Build / bazzite-mx`. A step name is Title Case, verb + object, no article, a tool in its
   own casing: `Checkout`, `Resolve Base`, `Build Image`, `Install Cosign`, `Push to GHCR`,
   `Run shfmt, yamllint and just`. Env vars `SCREAMING_SNAKE_CASE`; outputs `snake_case`, one
   key name across workflows.
-- Concurrency groups are literal `bazzite-mx-<phase>[-<key>]` and never built from
+- Concurrency groups are literal `bazzite-63-<phase>[-<key>]` and never built from
   `${{ github.workflow }}`. A called workflow reports the caller's name there, so a group built
   from it would put caller and callee in the same group and the callee would wait for the run
   that started it.
@@ -482,7 +387,8 @@ Where each one runs:
   `docker://<image>@<digest>`. A `:staging` tag left by an earlier run of the same day would
   carry the same version and the gate could not tell the two apart.
 - A verifier is shown failing before its first pass. The gate runs `cosign verify --key` and
-  `gh attestation verify --repo` on the flavour's own base and requires both to reject it. Only
+  `gh attestation verify --repo` on the base, bazzite-mx's own signed image, and requires both
+  to reject it. Only
   a signature-class rejection counts, matched on cosign's own message: a network error also
   exits non-zero and would pass a control that simply saw no signature.
 - A release tag is written once: the gate refuses to copy onto a `:<tag>` that already points

@@ -15,7 +15,7 @@
 #          <env-file>...        one per flavour, from the build job: image_name,
 #                               digest, base_name, base_digest
 #        changelog.sh --self-test
-# Output: the title on stdout, `<tag>: Stable (Bazzite <version>)`; the notes in
+# Output: the title on stdout, `<tag>: Stable (bazzite-mx <version>)`; the notes in
 #   the --out file; `changelog: no package diff for <tag>: …` on stderr when no
 #   flavour could be compared with the previous release.
 # Exit status: 0 notes written; 1 on a bad argument, an image that cannot be
@@ -550,7 +550,7 @@ release() {
         write_rebase
     } > "$NOTES_FILE"
 
-    echo "${RELEASE_TAG}: Stable (Bazzite ${BASE_VERSION})"
+    echo "${RELEASE_TAG}: Stable (bazzite-mx ${BASE_VERSION})"
 }
 
 # --- self-test ----------------------------------------------------------------
@@ -891,7 +891,7 @@ self_test_write_skopeo_shim() {
 
     cat > "$dir/bin/skopeo" << 'EOF'
 #!/usr/bin/env bash
-if [[ "${!#}" != docker://ghcr.io/matrixdj96/bazzite-mx*:44.20260903 ]]; then
+if [[ "${!#}" != docker://ghcr.io/sonnycavallaro/bazzite-63*:44.20260903 ]]; then
     echo "shim: unexpected reference ${!#}" >&2
     exit 3
 fi
@@ -928,7 +928,7 @@ self_test_inspect_retry_note() {
     self_test_write_skopeo_shim "$dir"
 
     if ! labels=$(PATH="$dir/bin:$PATH" SKOPEO_SHIM=retry \
-        inspect_labels "$REGISTRY/bazzite-mx:44.20260903" 2> "$error_file"); then
+        inspect_labels "$REGISTRY/bazzite-63:44.20260903" 2> "$error_file"); then
         fail_self_test "a skopeo that retried and succeeded was read as a failure"
     fi
 
@@ -989,7 +989,7 @@ self_test_fetch_sbom() {
     self_test_write_oras_shim "$dir"
     digest="sha256:$(printf '%064d' 7)"
 
-    if PATH="$dir/bin:$PATH" ORAS_SHIM=none fetch_sbom bazzite-mx "$digest" \
+    if PATH="$dir/bin:$PATH" ORAS_SHIM=none fetch_sbom bazzite-63 "$digest" \
         "$dir/none.json" 2> /dev/null; then
         status=0
     else
@@ -1002,7 +1002,7 @@ self_test_fetch_sbom() {
 
     REFUSED=$((REFUSED + 1))
 
-    if output=$(PATH="$dir/bin:$PATH" ORAS_SHIM=down fetch_sbom bazzite-mx "$digest" \
+    if output=$(PATH="$dir/bin:$PATH" ORAS_SHIM=down fetch_sbom bazzite-63 "$digest" \
         "$dir/down.json" 2>&1); then
         status=0
     else
@@ -1028,8 +1028,8 @@ self_test_inspect_failures() {
     local dir=$1
 
     self_test_write_skopeo_shim "$dir"
-    printf '%s\n' image_name=bazzite-mx "digest=sha256:$(printf '%064d' 3)" \
-        base_name=ghcr.io/ublue-os/bazzite "base_digest=sha256:$(printf '%064d' 1)" \
+    printf '%s\n' image_name=bazzite-63 "digest=sha256:$(printf '%064d' 3)" \
+        base_name=ghcr.io/matrixdj96/bazzite-mx "base_digest=sha256:$(printf '%064d' 1)" \
         > "$dir/bazzite.env"
     REFUSED=$((REFUSED + 1))
 
@@ -1045,7 +1045,7 @@ self_test_inspect_failures() {
 
     if (
         # The shim answers 3 on the `@<digest>` reference of the labels.
-        IMAGE_NAMES=(bazzite-mx)
+        IMAGE_NAMES=(bazzite-63)
         PREVIOUS_TAG=44.20260903
         PATH="$dir/bin:$PATH" SKOPEO_SHIM=ok find_previous_revision > /dev/null 2>&1
         echo "the notes went on"
@@ -1069,7 +1069,7 @@ self_test_read_packages() {
     digest="sha256:$(printf '%064d' 7)"
 
     if ! output=$(
-        IMAGE_NAMES=(bazzite-mx)
+        IMAGE_NAMES=(bazzite-63)
         IMAGE_DIGESTS=("$digest")
         PREVIOUS_TAG=44.20260903
         RELEASE_TAG=44.20260904
@@ -1080,30 +1080,30 @@ self_test_read_packages() {
         fail_self_test "a first release of this image not read: ${output//$'\n'/ / }"
     fi
 
-    if ! grep -qxF '{"images":[{"name":"bazzite-mx","curr":{"kernel":"1"},"prev":null}]}' \
+    if ! grep -qxF '{"images":[{"name":"bazzite-63","curr":{"kernel":"1"},"prev":null}]}' \
         <<< "$output" \
-        || ! grep -qF 'changelog: no package diff for 44.20260904: bazzite-mx not in' \
+        || ! grep -qF 'changelog: no package diff for 44.20260904: bazzite-63 not in' \
             "$dir/gap.err"; then
         fail_self_test "a first release of this image not stated on stderr:" \
             "${output//$'\n'/ / } / $(< "$dir/gap.err")"
     fi
 
     if ! output=$(
-        IMAGE_NAMES=(bazzite-mx)
+        IMAGE_NAMES=(bazzite-63)
         PREVIOUS_TAG=44.20260903
         PATH="$dir/bin:$PATH" ORAS_SHIM=norpm SKOPEO_SHIM=ok read_previous_packages 0 \
             2> /dev/null
         cat "$WORK_DIR/prev-0.json"
         echo "$PACKAGE_DIFF_GAPS"
     ) || [ "$(head -n1 <<< "$output")" != null ] \
-        || ! grep -qF 'bazzite-mx:44.20260903 without SBOM' <<< "$output"; then
+        || ! grep -qF 'bazzite-63:44.20260903 without SBOM' <<< "$output"; then
         fail_self_test "a previous SBOM without RPMs not left null: ${output//$'\n'/ / }"
     fi
 
     REFUSED=$((REFUSED + 1))
 
     if output=$(
-        IMAGE_NAMES=(bazzite-mx)
+        IMAGE_NAMES=(bazzite-63)
         PREVIOUS_TAG=44.20260903
         PATH="$dir/bin:$PATH" ORAS_SHIM=pull-down SKOPEO_SHIM=ok read_previous_packages 0 2>&1
     ) || ! grep -q 'oras pull of the SBOM sha256:8 of .* failed' <<< "$output"; then
@@ -1112,19 +1112,19 @@ self_test_read_packages() {
     fi
 
     if ! output=$(
-        IMAGE_NAMES=(bazzite-mx)
+        IMAGE_NAMES=(bazzite-63)
         PREVIOUS_TAG=44.20260903
         PATH="$dir/bin:$PATH" ORAS_SHIM=none SKOPEO_SHIM=ok read_previous_packages 0 \
             2> /dev/null
         echo "$PACKAGE_DIFF_GAPS"
-    ) || ! grep -qF 'bazzite-mx:44.20260903 without SBOM' <<< "$output"; then
+    ) || ! grep -qF 'bazzite-63:44.20260903 without SBOM' <<< "$output"; then
         fail_self_test "a previous image without an SBOM not stated as a gap: $output"
     fi
 
     REFUSED=$((REFUSED + 1))
 
     if (
-        IMAGE_NAMES=(bazzite-mx)
+        IMAGE_NAMES=(bazzite-63)
         IMAGE_DIGESTS=("$digest")
         PREVIOUS_TAG=44.20260903
         PATH="$dir/bin:$PATH" ORAS_SHIM=none SKOPEO_SHIM=ok read_packages > /dev/null 2>&1
@@ -1136,7 +1136,7 @@ self_test_read_packages() {
     REFUSED=$((REFUSED + 1))
 
     if (
-        IMAGE_NAMES=(bazzite-mx)
+        IMAGE_NAMES=(bazzite-63)
         IMAGE_DIGESTS=("$digest")
         PREVIOUS_TAG=44.20260903
         PATH="$dir/bin:$PATH" ORAS_SHIM=ok SKOPEO_SHIM=auth read_packages > /dev/null 2>&1
@@ -1196,14 +1196,14 @@ self_test_answer() {
     echo "$json" > "$dir/answers/$file"
 }
 
-# self_test_release <dir>: release run end to end on two flavours whose bases
-# disagree on their version, against a previous release picked by publication,
-# with one commit since its revision: the title on the highest base, the header,
+# self_test_release <dir>: release run end to end on the flavour, against a
+# previous release picked by publication, with one commit since its revision:
+# the title on the base's version, the header,
 # the Major arrows and a major package new since then, the commit, the change
 # table, the rebase commands and nothing on stderr.
 self_test_release() {
     local dir=$1/release
-    local registry=ghcr.io/matrixdj96 base=ghcr.io/ublue-os
+    local registry=ghcr.io/sonnycavallaro base=ghcr.io/matrixdj96
     local sbom='{"artifacts":[{"type":"rpm","name":"kernel-core","version":"%s"},
         {"type":"rpm","name":"foo","version":"%s"}%s]}'
     local revision title notes digest referrers
@@ -1216,53 +1216,41 @@ self_test_release() {
     git -C "$dir/repo" -c user.name=Tester -c user.email=t@example.invalid \
         -c commit.gpgsign=false commit -q --allow-empty -m 'fix(ci): since then'
 
-    printf '%s\n' image_name=bazzite-mx digest=sha256:c1 "base_name=$base/bazzite" \
+    printf '%s\n' image_name=bazzite-63 digest=sha256:c1 "base_name=$base/bazzite-mx" \
         base_digest=sha256:b1 > "$dir/one.env"
-    printf '%s\n' image_name=bazzite-mx-nvidia digest=sha256:c2 \
-        "base_name=$base/bazzite-nvidia" base_digest=sha256:b2 > "$dir/two.env"
     self_test_answer "$dir" releases '[
         {"tagName":"44.20261001.10","publishedAt":"2026-10-01T20:00:00Z","isDraft":false},
         {"tagName":"44.20261001.9","publishedAt":"2026-10-01T08:00:00Z","isDraft":false}]'
-    self_test_answer "$dir" "$base/bazzite@sha256:b1" '{"Labels":{
+    self_test_answer "$dir" "$base/bazzite-mx@sha256:b1" '{"Labels":{
         "org.opencontainers.image.version":"44.20261006.9"}}'
-    self_test_answer "$dir" "$base/bazzite-nvidia@sha256:b2" '{"Labels":{
-        "org.opencontainers.image.version":"44.20261006.10"}}'
-    self_test_answer "$dir" "$registry/bazzite-mx:44.20261001.10" '{"Digest":"sha256:p1"}'
-    self_test_answer "$dir" "$registry/bazzite-mx-nvidia:44.20261001.10" \
-        '{"Digest":"sha256:p2"}'
-    self_test_answer "$dir" "$registry/bazzite-mx@sha256:p1" \
+    self_test_answer "$dir" "$registry/bazzite-63:44.20261001.10" '{"Digest":"sha256:p1"}'
+    self_test_answer "$dir" "$registry/bazzite-63@sha256:p1" \
         "{\"Labels\":{\"org.opencontainers.image.revision\":\"$revision\"}}"
 
-    for digest in c1 c2 p1 p2; do
+    for digest in c1 p1; do
         referrers='{"referrers":[{"artifactType":"application/vnd.spdx+json",'
         referrers+="\"digest\":\"sha256:s$digest\"}]}"
-        self_test_answer "$dir" "discover_$registry/bazzite-mx@sha256:$digest" "$referrers"
-        self_test_answer "$dir" "discover_$registry/bazzite-mx-nvidia@sha256:$digest" \
-            "$referrers"
+        self_test_answer "$dir" "discover_$registry/bazzite-63@sha256:$digest" "$referrers"
     done
 
-    self_test_answer "$dir" "pull_$registry/bazzite-mx@sha256:sc1" \
+    self_test_answer "$dir" "pull_$registry/bazzite-63@sha256:sc1" \
         "$(printf "$sbom" 7.2.2-1.fc44 1.1-1.fc44 \
             ',{"type":"rpm","name":"bazaar","version":"2-1"}')"
-    self_test_answer "$dir" "pull_$registry/bazzite-mx@sha256:sp1" \
+    self_test_answer "$dir" "pull_$registry/bazzite-63@sha256:sp1" \
         "$(printf "$sbom" 7.2.1-1.fc44 1.0-1.fc44 '')"
-    self_test_answer "$dir" "pull_$registry/bazzite-mx-nvidia@sha256:sc2" \
-        "$(printf "$sbom" 6.18.2-1.fc44 1.1-1.fc44 '')"
-    self_test_answer "$dir" "pull_$registry/bazzite-mx-nvidia@sha256:sp2" \
-        "$(printf "$sbom" 6.18.1-1.fc44 1.0-1.fc44 '')"
 
     if ! title=$(
         WORK_DIR=$(mktemp -d -p "$dir")
         PATH="$dir/bin:$PATH" SHIM_ANSWERS=$dir/answers GIT_DIR=$dir/repo/.git \
             release --release-tag 44.20261009 --out "$dir/notes.md" "$dir/one.env" \
-            "$dir/two.env" 2> "$dir/release.err"
+            2> "$dir/release.err"
     ); then
         fail_self_test "release run failed: $(< "$dir/release.err")"
     fi
 
     notes=$(< "$dir/notes.md")
 
-    if [ "$title" != '44.20261009: Stable (Bazzite 44.20261006.10)' ] \
+    if [ "$title" != '44.20261009: Stable (bazzite-mx 44.20261006.9)' ] \
         || [ -s "$dir/release.err" ] \
         || [ "$(grep '^###' <<< "$notes" | paste -sd, -)" \
             != '### Major packages,### Commits,### All Images,### How to rebase' ] \
@@ -1270,7 +1258,6 @@ self_test_release() {
             <<< "$notes" \
         || ! grep -qF 'From previous `stable` version `44.20261001.10` there' <<< "$notes" \
         || ! grep -qxF '| **Kernel** | 7.2.1-1 ➡️ 7.2.2-1 |' <<< "$notes" \
-        || ! grep -qxF '| **Kernel (Nvidia LTS)** | 6.18.1-1 ➡️ 6.18.2-1 |' <<< "$notes" \
         || ! grep -qxF '| **Bazaar** | 2-1 |' <<< "$notes" \
         || ! grep -qF '| fix(ci): since then | Tester |' <<< "$notes" \
         || ! grep -qxF '| 🔄 | foo | 1.0-1 | 1.1-1 |' <<< "$notes" \

@@ -16,7 +16,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: bazzite-mx-release
+  group: bazzite-63-release
   cancel-in-progress: false
 
 # Sets init.defaultBranch, so actions/checkout's `git init` prints no hint.

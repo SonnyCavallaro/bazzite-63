@@ -1,5 +1,5 @@
 # The sandbox: on a push to main or develop, a pull request or a dispatch, the
-# lint job, then the three flavours through reusable-build.yml. Nothing here
+# lint job, then the image through reusable-build.yml. Nothing here
 # reaches GHCR and no release comes from a push; main and a dispatch with
 # rechunk add the chunked image, its probe and the signing-key proof.
 name: Build
@@ -24,7 +24,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: bazzite-mx-build-${{ github.ref_name }}
+  group: bazzite-63-build-${{ github.ref_name }}
   cancel-in-progress: true
 
 # Sets init.defaultBranch, so actions/checkout's `git init` prints no hint.
@@ -116,9 +116,9 @@ jobs:
               echo "just --fmt --check ok: ${#files[@]} files"
             '
 
-      # On the host a syntax error is only a journal warning and the script is
-      # still marked performed (plasma-workspace, shellcorona.cpp).
-      - name: Check Plasma Scripts
+      # No .js is tracked yet; on a host a Plasma update script's syntax error is
+      # only a journal warning (plasma-workspace, shellcorona.cpp).
+      - name: Check JavaScript
         run: |
           set -euo pipefail
           node --version

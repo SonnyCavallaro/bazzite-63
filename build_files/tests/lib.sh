@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
 # Checks the smoke tests share. Each prints exactly one `OK: …` or `FAIL: …`
 # line per item, the contract tests/run.sh reads. Sourced by the tests that
-# need them; brings lib/just.sh (recipe_set, has_recipe) and lib/gpg.sh
+# need them; brings lib/just.sh (recipe_set) and lib/gpg.sh
 # (key_fingerprint, KEY_FPR) along.
 
 # shellcheck source=../lib/just.sh
 source "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../lib/just.sh"
 # shellcheck source=../lib/gpg.sh
 source "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../lib/gpg.sh"
-
-FLATPAK_BLOCKLIST=/usr/share/ublue-os/flatpak-blocklist
 
 # on_one_line <fallback> [<separator>]: stdin on one line, the separator (a
 # blank) between its lines, or the fallback when stdin is empty. A FAIL line
@@ -180,46 +178,5 @@ check_recipe_help() {
         echo "OK: ujust $recipe help runs"
     else
         echo "FAIL: ujust $recipe help: $(head -n2 <<< "$output" | on_one_line 'no output')"
-    fi
-}
-
-# check_flatpak_deny <ref>: the base's Flatpak filter carries `deny <ref>` once.
-check_flatpak_deny() {
-    local ref=$1
-    local count lines
-
-    count=$(grep -cxF "deny $ref" "$FLATPAK_BLOCKLIST" 2> /dev/null || true)
-
-    if [ -f "$FLATPAK_BLOCKLIST" ] && [ "$count" -eq 1 ]; then
-        echo "OK: $FLATPAK_BLOCKLIST denies $ref (once)"
-    else
-        lines=$(cat "$FLATPAK_BLOCKLIST" 2>&1 | tr '\n' ';' || true)
-        echo "FAIL: $FLATPAK_BLOCKLIST: ${lines:-empty}"
-    fi
-}
-
-# check_portal_group_removed <id> <next>: the base's Portal, parsed as YAML,
-# has no group <id> and still has the group <next> after it.
-check_portal_group_removed() {
-    local id=$1 next=$2
-
-    if python3 - "$id" "$next" << 'EOF'; then
-import sys, yaml
-ids = set()
-def walk(node):
-    if isinstance(node, dict):
-        if "id" in node:
-            ids.add(node["id"])
-        for value in node.values():
-            walk(value)
-    elif isinstance(node, list):
-        for value in node:
-            walk(value)
-walk(yaml.safe_load(open("/usr/share/yafti/yafti.yml")))
-sys.exit(0 if sys.argv[1] not in ids and sys.argv[2] in ids else 1)
-EOF
-        echo "OK: the Portal has no $id group, and its $next group stays"
-    else
-        echo "FAIL: the Portal still has its $id group, lost $next or does not parse"
     fi
 }
