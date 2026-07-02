@@ -207,6 +207,10 @@ echo "image identity ok"
 # firefox deny line, and the install list keeps its firefox entry.
 grep -qxF 'deny org.virt_manager.virt-manager/*' /usr/share/ublue-os/flatpak-blocklist \
     || fail "flatpak-blocklist lost its deny line for org.virt_manager.virt-manager"
+# 68-flatpak-apps.sh appends the bazzite-63 apps to the install list, the same
+# in-place shape; a tear eats the tail, so the last appended id is the probe.
+grep -qxF 'com.discordapp.Discord' /usr/share/ublue-os/bazzite/flatpak/install \
+    || fail "the flatpak install list lost its appended bazzite-63 tail (com.discordapp.Discord)"
 echo "flatpak lists ok"
 
 # --- 7. module index (70/71/72 install + depmod) ---
