@@ -22,13 +22,23 @@ setup-dev:
     set -eo pipefail
     echo "Setting up the dev environment (per-user: brew + mise)..."
     command -v brew >/dev/null || { echo "brew not found in PATH (Bazzite ships it; try a new shell)."; exit 1; }
-    brew install mise || true
-    # CLI tools (non-blocking if a formula is unavailable on this platform)
-    brew install powershell || echo "powershell: formula unavailable, skipping"
-    brew install sqlcmd     || echo "sqlcmd: formula unavailable, skipping"
+    # mise is REQUIRED (everything below depends on it). Homebrew's cask-API
+    # cache can break installs with "undefined method 'first' for nil":
+    # clear it and retry once before giving up.
+    if ! brew install mise; then
+        echo "brew install mise failed — clearing brew's API cache and retrying..."
+        rm -rf "$(brew --cache)/api" 2>/dev/null || true
+        brew update >/dev/null 2>&1 || true
+        brew install mise
+    fi
+    MISE="$(command -v mise || echo /home/linuxbrew/.linuxbrew/bin/mise)"
+    [ -x "$MISE" ] || { echo "mise is still missing after install — aborting."; exit 1; }
+    # CLI tools (non-blocking: the dev environment works without them)
+    brew install powershell || echo "powershell: install failed or formula unavailable, skipping"
+    brew install sqlcmd     || echo "sqlcmd: install failed or formula unavailable, skipping"
     # Runtimes from ~/.config/mise/config.toml (node, python, java, dotnet)
-    eval "$(mise activate bash)"
-    mise install
+    eval "$("$MISE" activate bash)"
+    "$MISE" install
     echo "Done. Open a new shell to activate the runtimes (node/python/java/dotnet)."
 
 # Install WinBoat (run Windows apps in a container). Beta; per-user AppImage.
