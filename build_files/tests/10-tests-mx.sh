@@ -495,9 +495,15 @@ if [ "$b63fm_state" != "enabled" ]; then
     exit 1
 fi
 
-# --- bazzite-63: Chrome default-browser user hook ---
-[ -x /usr/share/ublue-os/user-setup.hooks.d/21-bazzite-63-default-browser.sh ] || {
-    echo "FAIL: Chrome default-browser hook missing or not executable"; exit 1; }
+# --- bazzite-63: Chrome as system-wide default browser (static XDG default) ---
+# Shipped as /etc/xdg/mimeapps.list instead of a user-setup hook: a hook racing
+# the Flatpak install at first login stamps itself before Chrome exists and
+# never retries; the static default has no timing and users can still override
+# per-user via ~/.config/mimeapps.list.
+grep -q '^x-scheme-handler/https=com.google.Chrome.desktop$' /etc/xdg/mimeapps.list || {
+    echo "FAIL: /etc/xdg/mimeapps.list missing the Chrome default-browser entries"; exit 1; }
+[ ! -e /usr/share/ublue-os/user-setup.hooks.d/21-bazzite-63-default-browser.sh ] || {
+    echo "FAIL: stale default-browser hook shipped alongside the static XDG default"; exit 1; }
 
 # --- bazzite-63: removed integrations are gone ---
 [ ! -f /etc/yum.repos.d/mozilla.repo ] || { echo "FAIL: mozilla.repo should be removed"; exit 1; }

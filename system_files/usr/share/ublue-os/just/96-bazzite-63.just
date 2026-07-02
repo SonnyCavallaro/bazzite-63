@@ -142,10 +142,12 @@ b63-status:
         ko "Flatpak install run: not completed yet (Result=${result:-n/a}) — journalctl -u bazzite63-flatpak-manager"
     fi
 
-    installed=$(flatpak list --app --columns=application 2>/dev/null)
+    # The list mixes apps and runtimes (some pinned as `ref//branch`):
+    # compare against ALL installed refs, branch suffix stripped.
+    installed=$(flatpak list --columns=application 2>/dev/null)
     missing=0
     while read -r app; do
-        grep -qxF "$app" <<< "$installed" || { ko "flatpak missing: $app"; missing=1; }
+        grep -qxF "${app%%//*}" <<< "$installed" || { ko "flatpak missing: $app"; missing=1; }
     done < <(grep -vE '^\s*(#|$)' /usr/share/ublue-os/bazzite/flatpak/install)
     [[ $missing -eq 0 ]] && ok "all Flatpaks from the default-install list are installed"
 
