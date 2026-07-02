@@ -169,11 +169,12 @@ echo "libdnf5 build state cleared"
 
 # --- 4. justfile tree: imports present and the whole tree parses ---
 #
-# 55-justfile-reconcile.sh appends the two imports to the master and rewrites
-# three upstream files; a tear eats exactly the appended tail. The parse catches
+# 55-justfile-reconcile.sh appends the two bazzite-mx imports to the master and
+# rewrites three upstream files, 56-justfile-import-63.sh appends the bazzite-63
+# one; a tear eats exactly the appended tail. The parse catches
 # a tear that ends on a clean line boundary, and just's exit status is read
 # directly — never piped, where `| head` would mask it.
-for f in 95-bazzite-mx.just 96-bazzite-mx-overrides.just; do
+for f in 95-bazzite-mx.just 96-bazzite-mx-overrides.just 96-bazzite-63.just; do
     grep -qxF "import \"/usr/share/ublue-os/just/$f\"" /usr/share/ublue-os/justfile \
         || fail "import line for $f missing from the master justfile"
 done
