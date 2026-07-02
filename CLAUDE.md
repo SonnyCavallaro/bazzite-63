@@ -2,7 +2,10 @@
 
 ## Claude Code
 
-The canonical project guide is `AGENTS.md` (imported above), shared with every coding agent.
+The canonical project guide is `AGENTS.md` (imported above), shared with every
+coding agent.
 
-- **Pre-flight**: run `/preflight` (`.claude/commands/preflight.md`) for a local single-flavour build before pushing.
-- Deep knowledge lives in `docs/`; Claude-specific config (settings, slash commands) in `.claude/`.
+- **Validation**: a full image build is impractical locally — push a branch and
+  open a PR to `main`, which builds without publishing (see `AGENTS.md`).
+- Deep knowledge lives in `docs/`; Claude-specific config (settings, slash
+  commands) in `.claude/`.
