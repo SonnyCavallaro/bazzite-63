@@ -23,7 +23,7 @@ INSTALL_LIST=/usr/share/ublue-os/bazzite/flatpak/install
 # upstream list instead of replacing it.
 for app in \
     com.google.Chrome \
-    org.mozilla.Thunderbird \
+    org.mozilla.thunderbird_esr \
     me.proton.Pass \
     io.dbeaver.DBeaverCommunity \
     org.remmina.Remmina \

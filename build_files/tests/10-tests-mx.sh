@@ -480,7 +480,7 @@ grep -qF 'root-fs-type = "btrfs"' "$BOOTC_INSTALL_FILE" || {
 
 # --- bazzite-63: GUI apps in the Flatpak default-install list ---
 FLATPAK_INSTALL_LIST=/usr/share/ublue-os/bazzite/flatpak/install
-for app in com.google.Chrome org.mozilla.Thunderbird me.proton.Pass \
+for app in com.google.Chrome org.mozilla.thunderbird_esr me.proton.Pass \
            io.dbeaver.DBeaverCommunity org.remmina.Remmina \
            com.parsecgaming.parsec com.discordapp.Discord; do
     grep -qxF "$app" "$FLATPAK_INSTALL_LIST" || { echo "FAIL: $app not in Flatpak default-install"; exit 1; }
