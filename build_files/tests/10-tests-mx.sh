@@ -478,6 +478,14 @@ grep -qF 'root-fs-type = "btrfs"' "$BOOTC_INSTALL_FILE" || {
 [ -f /etc/profile.d/99-mise.sh ] || { echo "FAIL: /etc/profile.d/99-mise.sh missing"; exit 1; }
 [ -f /etc/skel/.config/mise/config.toml ] || { echo "FAIL: mise skel config.toml missing"; exit 1; }
 
+# --- bazzite-63: Konsole PowerShell default profile (skel, bash fallback until setup-dev) ---
+[ -f /etc/skel/.local/share/konsole/Powershell.profile ] || {
+    echo "FAIL: skel Konsole Powershell.profile missing"; exit 1; }
+grep -q '^DefaultProfile=Powershell.profile$' /etc/skel/.config/konsolerc || {
+    echo "FAIL: skel konsolerc does not set Powershell.profile as default"; exit 1; }
+grep -q 'exec bash -l' /etc/skel/.local/share/konsole/Powershell.profile || {
+    echo "FAIL: Konsole profile lost the bash fallback (fresh installs would get a broken terminal)"; exit 1; }
+
 # --- bazzite-63: GUI apps in the Flatpak default-install list ---
 FLATPAK_INSTALL_LIST=/usr/share/ublue-os/bazzite/flatpak/install
 for app in com.google.Chrome org.mozilla.thunderbird_esr me.proton.Pass \
