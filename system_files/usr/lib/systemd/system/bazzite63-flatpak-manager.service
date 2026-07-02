@@ -1,0 +1,16 @@
+[Unit]
+Description=Install bazzite-63 default Flatpaks
+# After Bazzite's manager so flathub is enabled and the blocklist filter is
+# already applied when we install.
+Wants=network-online.target
+After=network-online.target bazzite-flatpak-manager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/bazzite63-flatpak-manager
+Restart=on-failure
+RestartSec=90
+StartLimitInterval=0
+
+[Install]
+WantedBy=multi-user.target

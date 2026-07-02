@@ -2,6 +2,11 @@
 # MX block 68: add GUI apps to Bazzite's Flatpak default-install list.
 # Present at first boot, auto-updating from Flathub, user-removable. Keeping
 # these as Flatpaks (not RPM) means they update without an image rebuild/reboot.
+#
+# The list is only consumed by Bazzite's ISO installer, never at runtime
+# (bazzite-flatpak-manager maintains remotes/overrides but installs nothing),
+# so bazzite63-flatpak-manager.service (enabled below) installs it at boot —
+# otherwise a stock-ISO + `bootc switch` system would never get these apps.
 
 echo "::group:: ===$(basename "$0")==="
 
@@ -22,5 +27,8 @@ for app in \
     com.discordapp.Discord; do
     grep -qxF "$app" "$INSTALL_LIST" || echo "$app" >> "$INSTALL_LIST"
 done
+
+# Boot-time installer for the list above (see header).
+systemctl enable bazzite63-flatpak-manager.service
 
 echo "::endgroup::"

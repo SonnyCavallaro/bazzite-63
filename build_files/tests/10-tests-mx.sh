@@ -475,6 +475,15 @@ for app in com.google.Chrome org.mozilla.Thunderbird me.proton.Pass \
     grep -qxF "$app" "$FLATPAK_INSTALL_LIST" || { echo "FAIL: $app not in Flatpak default-install"; exit 1; }
 done
 
+# --- bazzite-63: boot-time Flatpak installer (the list is never consumed at runtime by Bazzite) ---
+[ -x /usr/libexec/bazzite63-flatpak-manager ] || {
+    echo "FAIL: /usr/libexec/bazzite63-flatpak-manager missing or not executable"; exit 1; }
+b63fm_state=$(systemctl is-enabled bazzite63-flatpak-manager.service 2>/dev/null || echo missing)
+if [ "$b63fm_state" != "enabled" ]; then
+    echo "FAIL: bazzite63-flatpak-manager.service not enabled (state=$b63fm_state)"
+    exit 1
+fi
+
 # --- bazzite-63: Chrome default-browser user hook ---
 [ -x /usr/share/ublue-os/user-setup.hooks.d/21-bazzite-63-default-browser.sh ] || {
     echo "FAIL: Chrome default-browser hook missing or not executable"; exit 1; }
