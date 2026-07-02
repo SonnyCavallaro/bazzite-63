@@ -495,15 +495,25 @@ if [ "$b63fm_state" != "enabled" ]; then
     exit 1
 fi
 
-# --- bazzite-63: Chrome as system-wide default browser (static XDG default) ---
-# Shipped as /etc/xdg/mimeapps.list instead of a user-setup hook: a hook racing
-# the Flatpak install at first login stamps itself before Chrome exists and
-# never retries; the static default has no timing and users can still override
-# per-user via ~/.config/mimeapps.list.
-grep -q '^x-scheme-handler/https=com.google.Chrome.desktop$' /etc/xdg/mimeapps.list || {
-    echo "FAIL: /etc/xdg/mimeapps.list missing the Chrome default-browser entries"; exit 1; }
+# --- bazzite-63: Chrome as system-wide default browser (XDG default merged at build) ---
+# Our entries are MERGED into Bazzite's own /etc/xdg/mimeapps.list by
+# 68-flatpak-apps.sh (a static replacement file would clobber upstream
+# entries like the Bazaar .flatpakref handler). No first-login hook: a hook
+# racing the Flatpak install stamps itself before Chrome exists and never
+# retries; users can still override per-user via ~/.config/mimeapps.list.
+for entry in 'x-scheme-handler/http=com.google.Chrome.desktop' \
+             'x-scheme-handler/https=com.google.Chrome.desktop' \
+             'text/html=com.google.Chrome.desktop' \
+             'application/xhtml+xml=com.google.Chrome.desktop'; do
+    grep -qxF "$entry" /etc/xdg/mimeapps.list || {
+        echo "FAIL: /etc/xdg/mimeapps.list missing '$entry'"; exit 1; }
+done
+# Canary against clobbering upstream defaults: Bazzite ships the Bazaar
+# .flatpakref association in the same file — it must survive our merge.
+grep -q '^application/vnd\.flatpak\.ref=' /etc/xdg/mimeapps.list || {
+    echo "FAIL: upstream mimeapps entries were clobbered (flatpak.ref handler missing)"; exit 1; }
 [ ! -e /usr/share/ublue-os/user-setup.hooks.d/21-bazzite-63-default-browser.sh ] || {
-    echo "FAIL: stale default-browser hook shipped alongside the static XDG default"; exit 1; }
+    echo "FAIL: stale default-browser hook shipped alongside the XDG default"; exit 1; }
 
 # --- bazzite-63: removed integrations are gone ---
 [ ! -f /etc/yum.repos.d/mozilla.repo ] || { echo "FAIL: mozilla.repo should be removed"; exit 1; }

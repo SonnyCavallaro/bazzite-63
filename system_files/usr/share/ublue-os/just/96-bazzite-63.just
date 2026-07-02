@@ -27,7 +27,8 @@ setup-dev:
     # clear it and retry once before giving up.
     if ! brew install mise; then
         echo "brew install mise failed — clearing brew's API cache and retrying..."
-        rm -rf "$(brew --cache)/api" 2>/dev/null || true
+        brew_cache="$(brew --cache 2>/dev/null)"
+        [ -n "$brew_cache" ] && rm -rf "$brew_cache/api" || true
         brew update >/dev/null 2>&1 || true
         brew install mise
     fi
@@ -84,6 +85,7 @@ install-sap-gui INSTALLER="":
         echo "Download SAP GUI for Java from the SAP Software Download Center."
         exit 1
     fi
+    command -v java >/dev/null || { echo "java not found — run 'ujust setup-dev' first, then open a new shell."; exit 1; }
     java -jar "{{ INSTALLER }}"
 
 # Install IBM ACS (IBM i Access Client Solutions) from an archive you provide.
@@ -98,7 +100,11 @@ install-ibm-acs ARCHIVE="":
     fi
     dest="$HOME/.local/share/ibm-acs"
     mkdir -p "$dest"
-    unzip -o "{{ ARCHIVE }}" -d "$dest"
+    if command -v unzip >/dev/null; then
+        unzip -o "{{ ARCHIVE }}" -d "$dest"
+    else
+        bsdtar -xf "{{ ARCHIVE }}" -C "$dest"
+    fi
     echo "IBM ACS extracted to $dest (launch: java -jar \"$dest/.../acsbundle.jar\")."
 
 # Create a Microsoft 365 web-app (PWA) launcher backed by the Chrome Flatpak.
@@ -161,8 +167,12 @@ b63-status:
     done < <(grep -vE '^\s*(#|$)' /usr/share/ublue-os/bazzite/flatpak/install)
     [[ $missing -eq 0 ]] && ok "all Flatpaks from the default-install list are installed"
 
-    browser=$(xdg-settings get default-web-browser 2>/dev/null || echo n/a)
-    if [[ "$browser" == "com.google.Chrome.desktop" ]]; then
+    # xdg-settings resolves the per-user default (KDE kdeglobals chain); fall
+    # back to the XDG mime chain, which also sees /etc/xdg/mimeapps.list.
+    browser=$(xdg-settings get default-web-browser 2>/dev/null || true)
+    [[ -n "$browser" ]] || browser=$(xdg-mime query default x-scheme-handler/http 2>/dev/null || echo n/a)
+    if [[ "$browser" == "com.google.Chrome.desktop" ]] \
+       || [[ "$(xdg-mime query default x-scheme-handler/http 2>/dev/null)" == "com.google.Chrome.desktop" ]]; then
         ok "default browser: Chrome"
     else
         ko "default browser: $browser — fix: xdg-settings set default-web-browser com.google.Chrome.desktop"

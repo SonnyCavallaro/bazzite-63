@@ -4,13 +4,14 @@ Description=Install bazzite-63 default Flatpaks
 # already applied when we install.
 Wants=network-online.target
 After=network-online.target bazzite-flatpak-manager.service
+# Unlimited retries by design: a no-network first boot must keep trying.
+StartLimitIntervalSec=0
 
 [Service]
 Type=oneshot
 ExecStart=/usr/libexec/bazzite63-flatpak-manager
 Restart=on-failure
 RestartSec=90
-StartLimitInterval=0
 
 [Install]
 WantedBy=multi-user.target

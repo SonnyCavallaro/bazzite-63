@@ -31,8 +31,24 @@ if [[ ! -f $INSTALL_LIST ]]; then
     exit 1
 fi
 
-mapfile -t APPS < <(grep -vE '^\s*(#|$)' "$INSTALL_LIST")
-flatpak install --system --assumeyes --or-update flathub "${APPS[@]}"
+# Belt-and-braces: Bazzite's own manager normally enables flathub before us,
+# but do not depend on its ordering/success to converge.
+flatpak remote-add --if-not-exists --system flathub /etc/flatpak/remotes.d/flathub.flatpakrepo 2>/dev/null \
+    || flatpak remote-add --if-not-exists --system flathub https://dl.flathub.org/repo/flathub.flatpakrepo || :
+
+# One transaction per ref: a single broken ref (renamed/removed on Flathub)
+# must not poison the whole set. The stamp is only written when every ref
+# succeeded, so failed ones are retried by systemd while the healthy ones
+# are already installed.
+failed=0
+while read -r ref; do
+    flatpak install --system --assumeyes --or-update flathub "$ref" \
+        || { echo "WARN: install failed for $ref"; failed=1; }
+done < <(grep -vE '^\s*(#|$)' "$INSTALL_LIST")
+if [[ $failed -ne 0 ]]; then
+    echo "Some refs failed; stamp not written (systemd will retry)."
+    exit 1
+fi
 
 mkdir -p /etc/bazzite
 echo "$VER" > "$VER_FILE"

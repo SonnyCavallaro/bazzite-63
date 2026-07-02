@@ -52,16 +52,15 @@ Inside `build.sh`:
 rsync system_files/ → /
 build-mx.sh
   ├─ writes /etc/sysctl.d/90-bazzite-63-forwarding.conf
-  ├─ writes /etc/modules-load.d/90-bazzite-63.conf
+  ├─ writes /etc/modules-load.d/90-bazzite-63-nat.conf
   └─ enumerate build_files/mx/[0-9]*-*.sh in version order
        (mapfile -t < <(find … | sort -V))
 clean-stage.sh
-  ├─ dnf5 config-manager setopt keepcache=0
+  ├─ restore /etc/dnf/dnf.conf from /tmp/dnf.conf.orig (if staged)
   ├─ dnf5 versionlock clear
   ├─ mask + remove flatpak-add-fedora-repos.service
-  ├─ rm /.gitkeep
-  ├─ find /var/* -maxdepth 0 -type d ! -name cache -exec rm -fr {} \;
-  └─ mkdir /var/tmp
+  ├─ find /var/* -maxdepth 0 -type d ! -name cache ! -name log -exec rm -fr {} \;
+  └─ rm -rf /tmp/* + mkdir -p /var/tmp
 validate-repos.sh
   └─ checks OTHER_REPOS list (all tracked .repo files must be enabled=0)
 ```
