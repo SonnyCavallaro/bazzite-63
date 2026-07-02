@@ -1,0 +1,39 @@
+#!/usr/bin/bash
+# Install the Flatpaks declared in /usr/share/ublue-os/bazzite/flatpak/install.
+#
+# Bazzite's own bazzite-flatpak-manager only maintains remotes, blocklist
+# filters and overrides — the install list is consumed by the ISO installer
+# alone. Apps ADDED to the list by this image (68-flatpak-apps.sh) would
+# therefore never reach a system that installed the stock Bazzite ISO and
+# then `bootc switch`ed here.
+#
+# ON DEMAND by design (no systemd unit): run as root via
+# `ujust install-default-flatpaks` or the `ujust bazzite-63-setup` umbrella.
+# Idempotent — `--or-update` makes re-runs reconcile/update the set.
+
+set -eou pipefail
+
+INSTALL_LIST=/usr/share/ublue-os/bazzite/flatpak/install
+if [[ ! -f $INSTALL_LIST ]]; then
+    echo "FAIL: $INSTALL_LIST missing (Bazzite layout changed?)"
+    exit 1
+fi
+
+# Belt-and-braces: Bazzite's own manager normally enables flathub at boot,
+# but do not depend on its ordering/success to converge.
+flatpak remote-add --if-not-exists --system flathub /etc/flatpak/remotes.d/flathub.flatpakrepo 2>/dev/null \
+    || flatpak remote-add --if-not-exists --system flathub https://dl.flathub.org/repo/flathub.flatpakrepo || :
+
+# One transaction per ref: a single broken ref (renamed/removed on Flathub)
+# must not poison the whole set — the healthy ones still install.
+failed=0
+while read -r ref; do
+    flatpak install --system --assumeyes --or-update flathub "$ref" \
+        || { echo "WARN: install failed for $ref"; failed=1; }
+done < <(grep -vE '^\s*(#|$)' "$INSTALL_LIST")
+if [[ $failed -ne 0 ]]; then
+    echo "Some refs failed (see WARN lines above) — re-run to retry."
+    exit 1
+fi
+
+echo "Default Flatpak set installed/updated."
