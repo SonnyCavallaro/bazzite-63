@@ -486,6 +486,22 @@ grep -q '^DefaultProfile=Powershell.profile$' /etc/skel/.config/konsolerc || {
 grep -q 'exec bash -l' /etc/skel/.local/share/konsole/Powershell.profile || {
     echo "FAIL: Konsole profile lost the bash fallback (fresh installs would get a broken terminal)"; exit 1; }
 
+# --- bazzite-63: Konsole profile user-setup hook (accounts that predate the image) ---
+KONSOLE_HOOK=/usr/share/ublue-os/user-setup.hooks.d/22-bazzite-63-konsole-profile.sh
+if [ ! -x "$KONSOLE_HOOK" ]; then
+    echo "FAIL: $KONSOLE_HOOK missing or not executable"
+    exit 1
+fi
+grep -qE '^version-script bazzite-63-konsole user [0-9]+ ' "$KONSOLE_HOOK" || {
+    echo "FAIL: $KONSOLE_HOOK lost its version-script guard"; exit 1; }
+
+# --- bazzite-63: tray clock shows seconds by default (69-kde-defaults.sh) ---
+CLOCK_XML=/usr/share/plasma/plasmoids/org.kde.plasma.digitalclock/contents/config/main.xml
+sed -n '/<entry name="showSeconds"/,/<\/entry>/p' "$CLOCK_XML" | grep -q '<default>2</default>' || {
+    echo "FAIL: digital-clock showSeconds default is not Always (69-kde-defaults.sh broken?)"
+    exit 1
+}
+
 # --- bazzite-63: GUI apps in the Flatpak default-install list ---
 FLATPAK_INSTALL_LIST=/usr/share/ublue-os/bazzite/flatpak/install
 for app in com.google.Chrome org.mozilla.thunderbird_esr me.proton.Pass \
@@ -501,6 +517,31 @@ done
     echo "FAIL: /usr/libexec/bazzite63-flatpak-manager missing or not executable"; exit 1; }
 [ ! -e /usr/lib/systemd/system/bazzite63-flatpak-manager.service ] || {
     echo "FAIL: stale bazzite63-flatpak-manager unit shipped (installs must stay on-demand)"; exit 1; }
+
+# --- bazzite-63: flatpak-manager processes EVERY ref in the install list ---
+# flatpak reads stdin even with --assumeyes: a bare `flatpak install` inside
+# the manager's while-read loop swallows the rest of the list, so only the
+# first ref is processed while the run still reports success. The stub
+# reproduces that stdin-eating behaviour; one install invocation per list
+# entry, or the manager is broken.
+STUB_DIR=$(mktemp -d)
+export FLATPAK_STUB_LOG="$STUB_DIR/install-calls.log"
+: > "$FLATPAK_STUB_LOG"
+cat > "$STUB_DIR/flatpak" <<'EOF'
+#!/usr/bin/bash
+cat > /dev/null                     # swallow stdin like the real flatpak CLI
+if [ "${1:-}" = "install" ]; then echo "$*" >> "$FLATPAK_STUB_LOG"; fi
+exit 0
+EOF
+chmod +x "$STUB_DIR/flatpak"
+PATH="$STUB_DIR:$PATH" /usr/libexec/bazzite63-flatpak-manager < /dev/null > /dev/null
+flatpak_refs_expected=$(grep -cvE '^\s*(#|$)' "$FLATPAK_INSTALL_LIST")
+flatpak_refs_installed=$(wc -l < "$FLATPAK_STUB_LOG")
+rm -rf "$STUB_DIR"
+if [ "$flatpak_refs_installed" -ne "$flatpak_refs_expected" ]; then
+    echo "FAIL: flatpak-manager ran $flatpak_refs_installed/$flatpak_refs_expected installs (stdin swallowed by flatpak install?)"
+    exit 1
+fi
 
 # --- bazzite-63: Chrome as system-wide default browser (XDG default merged at build) ---
 # Our entries are MERGED into Bazzite's own /etc/xdg/mimeapps.list by

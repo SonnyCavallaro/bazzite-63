@@ -26,9 +26,14 @@ flatpak remote-add --if-not-exists --system flathub /etc/flatpak/remotes.d/flath
 
 # One transaction per ref: a single broken ref (renamed/removed on Flathub)
 # must not poison the whole set — the healthy ones still install.
+# flatpak's stdin MUST be /dev/null: flatpak reads stdin even with
+# --assumeyes, and inside this while-read loop it would swallow the rest
+# of the list, truncating the set to its first entry while the run still
+# reports success.
 failed=0
 while read -r ref; do
-    flatpak install --system --assumeyes --or-update flathub "$ref" \
+    echo ":: $ref"
+    flatpak install --system --assumeyes --or-update flathub "$ref" < /dev/null \
         || { echo "WARN: install failed for $ref"; failed=1; }
 done < <(grep -vE '^\s*(#|$)' "$INSTALL_LIST")
 if [[ $failed -ne 0 ]]; then

@@ -80,9 +80,12 @@ Every piece of the one-shot setup is also available as its own recipe:
 
 - **Chrome as the system-wide default browser** (merged into the XDG defaults at
   build time; per-user override always wins).
-- **Konsole defaults to a PowerShell profile** for new users — with a bash
-  fallback until `setup-dev` has installed `pwsh`, so a fresh install always has
-  a working terminal.
+- **Konsole defaults to a PowerShell profile** — via skel for new accounts and
+  a first-login hook for accounts that predate the image, with a bash fallback
+  until `setup-dev` has installed `pwsh`, so every install has a working
+  terminal. An explicit per-user profile choice is never overridden.
+- **Tray clock shows seconds** (digital-clock plasmoid default patched at build
+  time; the per-user applet setting still wins).
 
 ## Build & CI
 

@@ -185,7 +185,9 @@ b63-status:
        || [[ "$(xdg-mime query default x-scheme-handler/http 2>/dev/null)" == "com.google.Chrome.desktop" ]]; then
         ok "default browser: Chrome"
     else
-        ko "default browser: $browser — fix: xdg-settings set default-web-browser com.google.Chrome.desktop"
+        # xdg-settings SET is broken on Bazzite (qtpaths missing), so the hint
+        # goes through the install recipe / kwriteconfig6 instead.
+        ko "default browser: $browser — fix: ujust install-default-flatpaks; if Chrome is already installed: kwriteconfig6 --file kdeglobals --group General --key BrowserApplication com.google.Chrome.desktop"
     fi
 
     if command -v mise >/dev/null 2>&1 || [ -x /home/linuxbrew/.linuxbrew/bin/mise ]; then
