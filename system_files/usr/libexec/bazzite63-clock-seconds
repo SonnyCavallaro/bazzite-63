@@ -1,0 +1,37 @@
+#!/usr/bin/bash
+# Set the tray digital clock to show seconds, once per user. Plasma 6 embeds
+# the digitalclock package inside its plugin (no on-disk main.xml default to
+# patch at build time), so the setting is applied live through plasmashell's
+# scripting API. Runs from /etc/xdg/autostart inside the Plasma session; the
+# stamp makes it one-shot per user, so any later per-user change wins and is
+# never overridden again.
+set -euo pipefail
+
+STAMP="${XDG_CONFIG_HOME:-$HOME/.config}/bazzite63-clock-seconds.done"
+[ -e "$STAMP" ] && exit 0
+
+# plasmashell may still be registering on the session bus at autostart time.
+# No stamp on the not-up path: the next login retries.
+up=""
+for _ in $(seq 1 60); do
+    if gdbus introspect --session --dest org.kde.plasmashell \
+        --object-path /PlasmaShell >/dev/null 2>&1; then
+        up=1
+        break
+    fi
+    sleep 1
+done
+[ -n "$up" ] || exit 0
+
+# showSeconds enum: 0=Never, 1=ToolTip (upstream default), 2=Always.
+gdbus call --session --dest org.kde.plasmashell --object-path /PlasmaShell \
+    --method org.kde.PlasmaShell.evaluateScript '
+    for (const containment of panels()) {
+        for (const widget of containment.widgets("org.kde.plasma.digitalclock")) {
+            widget.currentConfigGroup = ["Appearance"];
+            widget.writeConfig("showSeconds", 2);
+        }
+    }' >/dev/null
+
+mkdir -p "$(dirname "$STAMP")"
+touch "$STAMP"
