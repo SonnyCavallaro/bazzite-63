@@ -495,12 +495,24 @@ fi
 grep -qE '^version-script bazzite-63-konsole user [0-9]+ ' "$KONSOLE_HOOK" || {
     echo "FAIL: $KONSOLE_HOOK lost its version-script guard"; exit 1; }
 
-# --- bazzite-63: tray clock shows seconds by default (69-kde-defaults.sh) ---
-CLOCK_XML=/usr/share/plasma/plasmoids/org.kde.plasma.digitalclock/contents/config/main.xml
-sed -n '/<entry name="showSeconds"/,/<\/entry>/p' "$CLOCK_XML" | grep -q '<default>2</default>' || {
-    echo "FAIL: digital-clock showSeconds default is not Always (69-kde-defaults.sh broken?)"
+# --- bazzite-63: tray clock seconds one-shot autostart (Plasma 6 embeds the
+# --- digitalclock package in its plugin: no on-disk main.xml to patch) ---
+CLOCK_SCRIPT=/usr/libexec/bazzite63-clock-seconds
+CLOCK_AUTOSTART=/etc/xdg/autostart/bazzite63-clock-seconds.desktop
+if [ ! -x "$CLOCK_SCRIPT" ]; then
+    echo "FAIL: $CLOCK_SCRIPT missing or not executable"
     exit 1
-}
+fi
+grep -q 'evaluateScript' "$CLOCK_SCRIPT" || {
+    echo "FAIL: $CLOCK_SCRIPT lost the plasmashell scripting call"; exit 1; }
+grep -q 'showSeconds' "$CLOCK_SCRIPT" || {
+    echo "FAIL: $CLOCK_SCRIPT no longer sets showSeconds"; exit 1; }
+if [ ! -f "$CLOCK_AUTOSTART" ]; then
+    echo "FAIL: $CLOCK_AUTOSTART missing"
+    exit 1
+fi
+grep -qxF "Exec=$CLOCK_SCRIPT" "$CLOCK_AUTOSTART" || {
+    echo "FAIL: $CLOCK_AUTOSTART Exec does not point at $CLOCK_SCRIPT"; exit 1; }
 
 # --- bazzite-63: GUI apps in the Flatpak default-install list ---
 FLATPAK_INSTALL_LIST=/usr/share/ublue-os/bazzite/flatpak/install

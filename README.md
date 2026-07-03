@@ -84,8 +84,8 @@ Every piece of the one-shot setup is also available as its own recipe:
   a first-login hook for accounts that predate the image, with a bash fallback
   until `setup-dev` has installed `pwsh`, so every install has a working
   terminal. An explicit per-user profile choice is never overridden.
-- **Tray clock shows seconds** (digital-clock plasmoid default patched at build
-  time; the per-user applet setting still wins).
+- **Tray clock shows seconds** — applied once per user at login through the
+  plasmashell scripting API; change it afterwards and your choice sticks.
 
 ## Build & CI
 
