@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=bazzite-63 tray clock seconds default
+Comment=One-shot per-user default: tray digital clock shows seconds
+Exec=/usr/libexec/bazzite63-clock-seconds
+OnlyShowIn=KDE;
+NoDisplay=true
+X-KDE-autostart-phase=2
