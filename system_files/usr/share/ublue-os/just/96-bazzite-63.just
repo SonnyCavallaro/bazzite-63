@@ -77,14 +77,45 @@ install-winboat:
     EOF
     echo "WinBoat installed."
 
-# Install JetBrains Rider (Flatpak). Free for non-commercial use only;
-# a commercial licence is required for company work.
+# Install JetBrains Toolbox (per-user, under $HOME): manages install, update
+# and rollback of the JetBrains IDEs (Rider, …) — install them from its UI.
+# The Toolbox app is free; each IDE carries its own licence (commercial
+# licence required for company work). Idempotent: a re-run reinstalls the
+# latest Toolbox; installed IDEs and settings live elsewhere and survive.
 [group("apps")]
-install-rider:
+install-jetbrains-toolbox:
     #!/usr/bin/env bash
     set -eo pipefail
-    echo "Installing JetBrains Rider (Flatpak). Note: commercial licence for work use."
-    flatpak install -y --noninteractive flathub com.jetbrains.Rider
+    echo "Installing JetBrains Toolbox into ~/.local/share/jetbrains-toolbox..."
+    meta=$(curl -fsSL 'https://data.services.jetbrains.com/products/releases?code=TBA&latest=true&type=release')
+    url=$(jq -r '.TBA[0].downloads.linux.link' <<< "$meta")
+    sum=$(jq -r '.TBA[0].downloads.linux.checksumLink' <<< "$meta")
+    [ -n "$url" ] && [ "$url" != "null" ] || { echo "Could not resolve the Toolbox download URL."; exit 1; }
+    tmp=$(mktemp -d)
+    trap 'rm -rf "$tmp"' EXIT
+    file="${url##*/}"
+    curl -fsSL "$url" -o "$tmp/$file"
+    if [ -n "$sum" ] && [ "$sum" != "null" ]; then
+        curl -fsSL "$sum" -o "$tmp/$file.sha256"
+        (cd "$tmp" && sha256sum -c "$file.sha256")
+    fi
+    dist="$HOME/.local/share/jetbrains-toolbox"
+    rm -rf "$dist"
+    mkdir -p "$dist" "$HOME/.local/bin" "$HOME/.local/share/applications"
+    tar -xzf "$tmp/$file" -C "$dist" --strip-components=1
+    ln -sf "$dist/bin/jetbrains-toolbox" "$HOME/.local/bin/jetbrains-toolbox"
+    # Seed a menu entry; the first launch replaces it with Toolbox's own
+    # (same filename) and initialises ~/.local/share/JetBrains/Toolbox.
+    cat > "$HOME/.local/share/applications/jetbrains-toolbox.desktop" <<EOF
+    [Desktop Entry]
+    Name=JetBrains Toolbox
+    Exec=$dist/bin/jetbrains-toolbox
+    Icon=$dist/bin/toolbox.svg
+    Type=Application
+    Categories=Development;
+    Terminal=false
+    EOF
+    echo "JetBrains Toolbox installed. Launch it and install the IDEs (Rider, …) from there."
 
 # Install SAP GUI for Java from an installer you provide (needs an SAP S-user).
 [group("apps")]
@@ -144,13 +175,13 @@ install-default-flatpaks:
     sudo /usr/libexec/bazzite63-flatpak-manager
 
 # One-shot setup: everything installable without user-provided files
-# (default Flatpak set, dev toolchain, WinBoat, Rider, M365 launcher),
+# (default Flatpak set, dev toolchain, WinBoat, JetBrains Toolbox, M365 launcher),
 # then the health check. SAP GUI and IBM ACS stay manual: they need
 # licensed files you provide (`ujust install-sap-gui <jar>`,
 # `ujust install-ibm-acs <zip>`).
 # Idempotent: safe to re-run; uninstall what you don't need afterwards.
 [group("dev")]
-bazzite-63-setup: install-default-flatpaks setup-dev install-winboat install-rider setup-m365-pwa
+bazzite-63-setup: install-default-flatpaks setup-dev install-winboat install-jetbrains-toolbox setup-m365-pwa
     #!/usr/bin/env bash
     echo
     echo "Setup complete. Left out (need files you provide):"
