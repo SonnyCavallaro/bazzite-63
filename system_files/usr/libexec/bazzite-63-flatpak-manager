@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# Installs or updates, from Flathub, every Flatpak of Bazzite's default list,
+# the apps 42-flatpak-apps.sh added to it included. Nothing in Bazzite reads
+# that list any more, so a host that switched to this image never gets
+# what the image added; this is the root half of `ujust
+# install-default-flatpaks`, on demand: nothing installs at boot.
+#
+# Usage: bazzite-63-flatpak-manager install      (root) one transaction per ref
+#        bazzite-63-flatpak-manager --self-test  the loop on a fixture list with a
+#                                                stub flatpak, a failing ref and
+#                                                a flatpak that reads its stdin
+#   INSTALL_LIST=<file>: the list to read (the self-test's fixture).
+# Output: `:: <ref>` before each install; `WARN: <ref> failed` for a ref that
+#   did not install; `flatpak-manager: N refs installed or updated` at the end.
+# Exit status: 0 every ref installed or updated; 1 a ref failed, the healthy
+#   ones installed anyway, the reason on stderr as `ERROR: …`.
+set -euo pipefail
+
+INSTALL_LIST=${INSTALL_LIST:-/usr/share/ublue-os/bazzite/flatpak/install}
+
+# --- the install --------------------------------------------------------------
+
+# One transaction per ref, so a ref Flathub renamed or dropped does not stop
+# the others. flatpak reads its stdin even with --assumeyes and would swallow
+# the rest of the list inside the loop, so its stdin is /dev/null.
+install_list() {
+    local ref count=0 failed=0
+
+    while read -r ref; do
+        echo ":: $ref"
+
+        if flatpak install --system --assumeyes --or-update flathub "$ref" < /dev/null; then
+            count=$((count + 1))
+        else
+            echo "WARN: $ref failed"
+            failed=1
+        fi
+    done < <(grep -vE '^[[:space:]]*(#|$)' "$INSTALL_LIST" || true)
+
+    echo "flatpak-manager: $count refs installed or updated"
+
+    if [ "$failed" -ne 0 ]; then
+        echo "ERROR: some refs failed (the WARN lines above); run it again to retry" >&2
+        return 1
+    fi
+}
+
+# --- self-test ----------------------------------------------------------------
+
+# A stub flatpak that logs each ref, reads its stdin as the real one does and
+# fails the ref named in STUB_FAILING.
+self_test_write_stub() {
+    local dir=$1
+
+    mkdir -p "$dir/bin"
+    cat > "$dir/bin/flatpak" << 'EOF'
+#!/usr/bin/env bash
+cat > /dev/null
+echo "${!#}" >> "$STUB_LOG"
+[ "${!#}" != "${STUB_FAILING:-}" ]
+EOF
+    chmod +x "$dir/bin/flatpak"
+}
+
+self_test() {
+    local dir output expected
+
+    dir=$(mktemp -d)
+    # shellcheck disable=SC2064  # expand now: the local is gone at EXIT
+    trap "rm -rf '$dir'" EXIT
+
+    self_test_write_stub "$dir"
+    printf '%s\n' org.mozilla.firefox '' '# a comment' me.proton.Pass \
+        'org.freedesktop.Platform.VulkanLayer.MangoHud//23.08' > "$dir/list"
+
+    if ! PATH="$dir/bin:$PATH" STUB_LOG=$dir/log INSTALL_LIST=$dir/list install_list \
+        > /dev/null; then
+        echo "self-test: a good list failed"
+        exit 1
+    fi
+
+    expected='org.mozilla.firefox me.proton.Pass'
+    expected+=' org.freedesktop.Platform.VulkanLayer.MangoHud//23.08'
+
+    if [ "$(paste -sd ' ' "$dir/log")" != "$expected" ]; then
+        echo "self-test: refs installed: $(paste -sd ' ' "$dir/log")"
+        exit 1
+    fi
+
+    : > "$dir/log"
+
+    if output=$(PATH="$dir/bin:$PATH" STUB_LOG=$dir/log STUB_FAILING=me.proton.Pass \
+        INSTALL_LIST=$dir/list install_list 2>&1); then
+        echo "self-test: a failing ref went unreported"
+        exit 1
+    fi
+
+    if ! grep -qx 'WARN: me.proton.Pass failed' <<< "$output" \
+        || [ "$(wc -l < "$dir/log")" -ne 3 ]; then
+        echo "self-test: a failing ref stopped the others: $(paste -sd ' ' "$dir/log")"
+        exit 1
+    fi
+
+    echo "self-test ok: 3 refs installed past a blank and a comment, a failing ref" \
+        "reported with the others installed"
+}
+
+# --- main ---------------------------------------------------------------------
+
+case "${1:-}" in
+    install)
+        if [ "$(id -u)" -ne 0 ]; then
+            echo "ERROR: install needs root (ujust install-default-flatpaks runs it with sudo)" >&2
+            exit 1
+        fi
+
+        install_list
+        ;;
+    --self-test)
+        self_test
+        ;;
+    *)
+        echo "ERROR: usage: bazzite-63-flatpak-manager install | --self-test" >&2
+        exit 1
+        ;;
+esac

@@ -1,9 +1,10 @@
 # Conventions
 
-Rules for writing build scripts, tests, CI and prose in this repo. A
+Rules for writing build scripts, tests, ujust recipes, CI and prose in this repo. A
 rule a file enforces names that file; the rest is checked by hand at review.
 
-Contents: Bash (Form) · build scripts · tests · positive control · CI · prose · commits.
+Contents: Bash (Form) · build scripts · ujust recipes · tests · positive control · CI · prose ·
+commits.
 
 ## Bash
 
@@ -13,7 +14,8 @@ Contents: Bash (Form) · build scripts · tests · positive control · CI · pro
   `shfmt --indent 4 --case-indent --binary-next-line --space-redirects`. `-x -P SCRIPTDIR`
   follows the sourced libraries, so a variable a library sets is not reported as undefined.
 - The `lint` job of `build.yml` runs both over every `.sh` git tracks plus every file carrying
-  the repo's shebang.
+  the repo's shebang, which is how the extensionless helpers under `system_files/usr/libexec/`
+  are covered.
 - The shfmt release is fixed at Fedora 44's, so the hook and the lint job cannot disagree on a
   diff. CI installs it in `quay.io/fedora/fedora:44`. The edit hook
   `.claude/hooks/lint-edit.sh` uses the host binary only when its minor matches, and the same
@@ -159,7 +161,10 @@ in `# form: literal`. The rest is checked by hand at review, like § Prose.
   ```
 
 - **A line stops at 100 columns.** A long command breaks after `\` with one argument per line;
-  a long pattern or message goes into a variable named for what it holds.
+  a long pattern or message goes into a variable named for what it holds. The one exception is
+  the description comment above a `.just` recipe, which `just --list` prints whole from that
+  single line ([`gotchas.md`](gotchas.md) § A recipe's description is the LAST comment line
+  above it).
 
   ```bash
   # before (123 columns)
@@ -307,6 +312,31 @@ known-bad still red after it. The rules above add to the earlier bullets of this
   `rsync`) where it costs nothing. What a runner change would reopen is in
   [`gotchas.md`](gotchas.md) § Torn writeback on a 6.17-azure runner kernel.
 
+## ujust recipes
+
+- Our own recipes live in `96-bazzite-63.just`, imported after bazzite-mx's
+  `95-bazzite-mx.just` into the master justfile, on a fresh inode. With
+  `allow-duplicate-recipes` the earlier import wins ([`gotchas.md`](gotchas.md) § `just`: the
+  earlier import wins on a duplicate recipe name), so `70-justfile.sh` fails the build on any
+  name defined in two files and checks that the master justfile exposes every name of ours and
+  still parses.
+- A recipe that needs more than a few lines of logic calls a helper under
+  `system_files/usr/libexec/bazzite-63-<x>`, the recipe staying a thin front: the `help` text,
+  the not-as-root check, `sudo` where root is needed, the call. The helper takes fixture knobs
+  (`INSTALL_LIST=`, a stub first on `PATH`) so its `--self-test` runs the real code, positive
+  and known-bad, inside the build.
+- Recipes are `just --unstable --fmt --check` clean and start with
+  `source /usr/lib/ujust/ujust.sh`, which brings the colours and `Choose`
+  ([`gotchas.md`](gotchas.md) § `ujust.sh` declares its colour and formatting names readonly).
+  The `help` action comes before the not-as-root check so the smoke test can run the recipe
+  body in the build. Two guards: the `lint` job checks every tracked `.just` file with Fedora
+  44's `just`, the release the image ships, and `70-justfile.sh` checks ours again inside the
+  build.
+- A recipe's description is one comment line above it ([`gotchas.md`](gotchas.md) § A recipe's
+  description is the LAST comment line above it).
+- What the image already does, a package installed or a file shipped, is not redone by a
+  recipe: the recipe does only what needs the host or a per-user choice.
+
 ## Tests
 
 - `tests/NN-<feature>.sh` with the same stem as the build script. `tests/run.sh` refuses a
@@ -356,6 +386,7 @@ Where each one runs:
 | `check-form.sh`                                           | `lint` job, `build.yml`, which then runs the check itself over the whole shell catalogue; `.claude/hooks/lint-edit.sh` runs it on every edited shell file |
 | `90-validate-repos.sh`                                    | the test RUN, called by its paired test                                                                                                                   |
 | `bazzite-mx-migrate`, the base's                          | the test RUN, called by `tests/12-host-helpers.sh`                                                                                                        |
+| `bazzite-63-flatpak-manager`                              | the test RUN, called by `tests/42-flatpak-apps.sh`                                                                                                        |
 | `tests/run.sh`                                            | `lint` job, `build.yml`, after the CI scripts                                                                                                             |
 
 ## CI

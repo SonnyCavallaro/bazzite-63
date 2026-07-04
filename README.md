@@ -18,6 +18,8 @@ onto a release only through the gate that verified its signature.
 - Firefox out of the image: bazzite-mx's Fedora RPM removed, Bazzite's Flatpak allowed.
 - Google Chrome as a system RPM from Google's repository, the default web browser, its Flatpak
   denied.
+- Thunderbird, Proton Pass, DBeaver, Remmina, Parsec and Discord in Bazzite's default Flatpak
+  list, installed with the rest of it on demand (`ujust install-default-flatpaks`).
 
 ## Switch a host
 

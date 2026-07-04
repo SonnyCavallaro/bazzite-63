@@ -5,13 +5,14 @@ it, that a reader would otherwise rediscover the hard way. Each one says what ha
 when it was measured, and what the repository does about it. The rules themselves live in
 [`conventions.md`](conventions.md).
 
-Contents, in the order of the entries: torn writeback on 6.17-azure · grep -v on an empty set ·
-command | grep -q · podman build labels · stub-resolv.conf left in the image ·
-remove-unwanted-software v9 · skopeo and containers-storage · workflow off the default branch ·
-setup-oras versions · cosign verify and referrers · rollback onto a pruned tag ·
-ghcr-cleanup-action patterns · pre-flight without the changed script · SBOM media type · FAIL
-branch before its verdict · 2> /dev/null on a failed redirection · cosign 3.1.3 bundle flag ·
-arithmetic error escapes set -e · scriptlet rewrote a .pyc · anonymous GHCR 403.
+Contents, in the order of the entries: torn writeback on 6.17-azure · just duplicate recipe ·
+ujust.sh readonly names · grep -v on an empty set · command | grep -q · podman build labels ·
+stub-resolv.conf left in the image · remove-unwanted-software v9 · skopeo and
+containers-storage · workflow off the default branch · setup-oras versions · cosign verify and
+referrers · rollback onto a pruned tag · ghcr-cleanup-action patterns · pre-flight without the
+changed script · SBOM media type · FAIL branch before its verdict · 2> /dev/null on a failed
+redirection · recipe description line · cosign 3.1.3 bundle flag · arithmetic error escapes set
+-e · scriptlet rewrote a .pyc · anonymous GHCR 403.
 
 ## Torn writeback on a 6.17-azure runner kernel
 
@@ -28,6 +29,21 @@ in 4 of 4 arms.
 
 CI builds on `ubuntu-26.04` for this reason, and the image carries neither a cold NUL sweep nor
 a fresh-inode helper. A runner whose kernel is a 6.17-azure brings the defect back.
+
+## `just`: the earlier import wins on a duplicate recipe name
+
+With `set allow-duplicate-recipes` and the same recipe name in two imported files, just keeps
+the recipe of the file imported first (just manual, "Imports"; measured 2026-09-02 with two
+files on just 1.57.0). An import appended after the base's files can never override a base
+recipe, so `70-justfile.sh` fails the build on any name defined twice.
+
+## `ujust.sh` declares its colour and formatting names readonly
+
+`source /usr/lib/ujust/ujust.sh` brings `libcolors.sh` and `libformatting.sh`, which declare
+`red`, `green`, `bold`, `normal` and the short forms `b` and `n` with `declare -r`
+(ublue-os-just 0.57-3.fc44, measured 2026-09-06 on the hub). A script that assigns one of them
+after the source prints `b: readonly variable` at every run and keeps the library's value;
+under `set -e` it stops there. A recipe of this image names its own variables otherwise.
 
 ## `grep -v` on an empty set kills a `pipefail` script silently
 
@@ -186,6 +202,17 @@ that reason: as `nobody` under `LC_ALL=it_IT.UTF-8` it printed `bash: riga 11:
 (measured 2026-09-12 in the pre-flight image). `2> /dev/null > file` is the order that silences
 it, and on the same run the `ERROR:` line stood alone. `write_modules_load_file` of
 `bazzite-mx-msi-setup` reads that way.
+
+## A recipe's description is the LAST comment line above it
+
+`just --list`, which `ujust` runs, shows one description per recipe and takes it from the last
+comment line above the recipe, not from the whole comment block. Measured 2026-09-12 with just
+1.57.0: a two-line comment lists as `foo # second line of the description`, the first line
+lost. So a description comment of `96-bazzite-63.just` stays on one line, however long:
+wrapping it to the 100 columns of `docs/conventions.md` § Form would silently cut what a user
+reads in `ujust`. `.just` files are
+outside the shell catalogue `check-form.sh` measures, so nothing enforces the limit there
+anyway.
 
 ## cosign 3.1.3 deprecates the flag the signature layout needs
 

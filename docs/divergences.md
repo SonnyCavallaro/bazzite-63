@@ -6,7 +6,8 @@ with its source. What bazzite-mx itself changes over Bazzite, and why, is its ow
 every entry there holds here too unless an entry below says otherwise.
 
 Contents: layered on bazzite-mx's signed image · identity and signing · the host helpers ·
-Firefox out of the image · Google Chrome, the default browser.
+Firefox out of the image · Google Chrome, the default browser · the
+default Flatpak set, on demand.
 
 ## Layered on bazzite-mx's signed image
 
@@ -99,3 +100,27 @@ prints that copy, from `~/.var/app/com.google.Chrome/config/google-chrome` to
 `~/.config/google-chrome`, while the Flatpak is installed; `verify-host`'s help in
 `95-bazzite-mx.just` names the Chrome Flatpak. Each edit first requires its anchor exactly
 once.
+
+## The default Flatpak set, on demand
+
+The image's other GUI apps are Flatpaks, which update in place without a rebuild or a reboot:
+Thunderbird, Proton Pass, DBeaver, Remmina, Parsec and Discord (`org.mozilla.thunderbird`,
+`me.proton.Pass`, `io.dbeaver.DBeaverCommunity`, `org.remmina.Remmina`,
+`com.parsecgaming.parsec`, `com.discordapp.Discord`). `42-flatpak-apps.sh` appends each to
+Bazzite's default list, `/usr/share/ublue-os/bazzite/flatpak/install`, after Bazzite's own
+entries and once, and drops from the list Firefox (§ Firefox out of the image) and the
+VulkanLayer runtimes, which Bazzite pins there to 23.08, against 25.08 in its ISO's
+`installer/kde_flatpaks/flatpaks`: neither is this image's choice. The app ids go alone into
+`/usr/share/bazzite-63/flatpak-apps` too.
+
+Nothing in Bazzite reads that list any more: its ISO installs `installer/kde_flatpaks/flatpaks`
+(`installer/build.sh`), and `bazzite-flatpak-manager` stopped reading it in bazzite commit
+6c24e91c, so a host that rebased onto the image never gets it. `ujust install-default-flatpaks`
+runs `bazzite-63-flatpak-manager install` through sudo: one
+`flatpak install --system --or-update flathub <ref>` per entry, in the list's order, so a ref
+Flathub renamed or dropped prints a `WARN:` line and the others still install; the run exits 1
+when one failed, and a second run retries it. Nothing installs at boot: the set is the user's to
+take, and what they do not want they remove afterwards.
+
+`70-justfile.sh` imports this image's recipe file, `96-bazzite-63.just`, after bazzite-mx's
+recipes, and refuses a name defined twice ([`conventions.md`](conventions.md) § ujust recipes).
