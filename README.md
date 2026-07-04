@@ -45,7 +45,7 @@ ujust b63-status         # expect: all OK
 ```
 
 `bazzite-63-setup` installs everything that needs no user-provided files — the
-default GUI Flatpak set, the dev environment, WinBoat, JetBrains Rider, the
+default GUI Flatpak set, the dev environment, WinBoat, JetBrains Toolbox, the
 Microsoft 365 launcher — then runs the health check. Idempotent: re-run it
 anytime, uninstall what you don't need afterwards. **Nothing installs silently
 at boot**: the image ships the machinery, you decide when to run it.
@@ -67,10 +67,10 @@ Every piece of the one-shot setup is also available as its own recipe:
 
 | Recipe | What it does |
 |---|---|
-| `ujust install-default-flatpaks` | Default GUI Flatpak set: Google Chrome (default browser), Thunderbird (ESR), Proton Pass, DBeaver Community, Remmina, Parsec, Discord — auto-updating once installed |
+| `ujust install-default-flatpaks` | Default GUI Flatpak set: Google Chrome (default browser), Thunderbird, Proton Pass, DBeaver Community, Remmina, Parsec, Discord — auto-updating once installed |
 | `ujust setup-dev` | `mise` + CLI tools via `brew` (PowerShell, sqlcmd), then the runtimes pinned in `~/.config/mise/config.toml`: Node LTS, Python 3.14, Temurin 21, .NET 10 |
 | `ujust install-winboat` | WinBoat AppImage (run Windows apps in a container; beta) |
-| `ujust install-rider` | JetBrains Rider (Flatpak) |
+| `ujust install-jetbrains-toolbox` | JetBrains Toolbox (per-user, checksum-verified) — install and update the JetBrains IDEs (Rider, …) from its UI |
 | `ujust install-sap-gui <jar>` | SAP GUI for Java, from an installer you provide |
 | `ujust install-ibm-acs <zip>` | IBM i Access Client Solutions, from an archive you provide |
 | `ujust setup-m365-pwa` | Microsoft 365 web-app launcher (Chrome PWA) |
@@ -84,6 +84,10 @@ Every piece of the one-shot setup is also available as its own recipe:
   a first-login hook for accounts that predate the image, with a bash fallback
   until `setup-dev` has installed `pwsh`, so every install has a working
   terminal. An explicit per-user profile choice is never overridden.
+- **PowerShell is wired to the dev tooling** — pwsh reads its own per-user
+  profile rather than `/etc/profile.d`, so a seeded `profile.ps1` puts brew on
+  the PATH and activates the `mise` runtimes inside `pwsh`. Seeded via skel,
+  the first-login hook, and `setup-dev` itself, so every account gets it.
 - **Tray clock shows seconds** — applied once per user at login through the
   plasmashell scripting API; change it afterwards and your choice sticks.
 
