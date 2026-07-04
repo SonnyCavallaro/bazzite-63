@@ -37,6 +37,17 @@ setup-dev:
     # CLI tools (non-blocking: the dev environment works without them)
     brew install powershell || echo "powershell: install failed or formula unavailable, skipping"
     brew install sqlcmd     || echo "sqlcmd: install failed or formula unavailable, skipping"
+    # Accounts that predate the image get no /etc/skel: seed the per-user dev
+    # config here as well (the 23-…-dev-config first-login hook covers the
+    # login path), so a single run yields the complete setup.
+    if [ ! -e "$HOME/.config/mise/config.toml" ] && [ -e /etc/skel/.config/mise/config.toml ]; then
+        mkdir -p "$HOME/.config/mise"
+        cp /etc/skel/.config/mise/config.toml "$HOME/.config/mise/"
+    fi
+    if [ ! -e "$HOME/.config/powershell/profile.ps1" ] && [ -e /etc/skel/.config/powershell/profile.ps1 ]; then
+        mkdir -p "$HOME/.config/powershell"
+        cp /etc/skel/.config/powershell/profile.ps1 "$HOME/.config/powershell/"
+    fi
     # Runtimes from ~/.config/mise/config.toml (node, python, java, dotnet)
     eval "$("$MISE" activate bash)"
     "$MISE" install
@@ -191,9 +202,20 @@ b63-status:
     fi
 
     if command -v mise >/dev/null 2>&1 || [ -x /home/linuxbrew/.linuxbrew/bin/mise ]; then
-        ok "dev tooling: mise present"
+        # mise alone is not enough: without the pinned-runtimes config
+        # `mise install` is a silent no-op (node/python/java/dotnet missing).
+        if [ -e "$HOME/.config/mise/config.toml" ]; then
+            ok "dev tooling: mise present, runtimes config in place"
+        else
+            ko "mise present but ~/.config/mise/config.toml missing — fix: ujust setup-dev"
+        fi
     else
         ko "dev tooling not initialised — run: ujust setup-dev"
+    fi
+    if [ -e "$HOME/.config/powershell/profile.ps1" ]; then
+        ok "pwsh profile: brew PATH + mise activation wired"
+    else
+        ko "pwsh profile missing (~/.config/powershell/profile.ps1) — fix: ujust setup-dev"
     fi
 
     echo
