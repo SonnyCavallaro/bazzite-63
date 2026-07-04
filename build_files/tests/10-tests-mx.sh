@@ -478,6 +478,16 @@ grep -qF 'root-fs-type = "btrfs"' "$BOOTC_INSTALL_FILE" || {
 [ -f /etc/profile.d/99-mise.sh ] || { echo "FAIL: /etc/profile.d/99-mise.sh missing"; exit 1; }
 [ -f /etc/skel/.config/mise/config.toml ] || { echo "FAIL: mise skel config.toml missing"; exit 1; }
 
+# --- bazzite-63: PowerShell per-user environment (pwsh reads its own profile,
+# --- never /etc/profile.d — without this skel file the default Konsole shell
+# --- sees neither brew nor the mise runtimes) ---
+PWSH_PROFILE=/etc/skel/.config/powershell/profile.ps1
+[ -f "$PWSH_PROFILE" ] || { echo "FAIL: skel pwsh profile.ps1 missing"; exit 1; }
+grep -q 'mise activate pwsh' "$PWSH_PROFILE" || {
+    echo "FAIL: skel pwsh profile lost the mise activation"; exit 1; }
+grep -q 'linuxbrew' "$PWSH_PROFILE" || {
+    echo "FAIL: skel pwsh profile lost the brew PATH wiring"; exit 1; }
+
 # --- bazzite-63: Konsole PowerShell default profile (skel, bash fallback until setup-dev) ---
 [ -f /etc/skel/.local/share/konsole/Powershell.profile ] || {
     echo "FAIL: skel Konsole Powershell.profile missing"; exit 1; }
@@ -494,6 +504,26 @@ if [ ! -x "$KONSOLE_HOOK" ]; then
 fi
 grep -qE '^version-script bazzite-63-konsole user [0-9]+ ' "$KONSOLE_HOOK" || {
     echo "FAIL: $KONSOLE_HOOK lost its version-script guard"; exit 1; }
+
+# --- bazzite-63: dev-config user-setup hook (accounts that predate the image
+# --- get no /etc/skel: mise runtimes config + pwsh profile) ---
+DEVCFG_HOOK=/usr/share/ublue-os/user-setup.hooks.d/23-bazzite-63-dev-config.sh
+if [ ! -x "$DEVCFG_HOOK" ]; then
+    echo "FAIL: $DEVCFG_HOOK missing or not executable"
+    exit 1
+fi
+grep -qE '^version-script bazzite-63-dev-config user [0-9]+ ' "$DEVCFG_HOOK" || {
+    echo "FAIL: $DEVCFG_HOOK lost its version-script guard"; exit 1; }
+grep -q 'skel/.config/mise/config.toml' "$DEVCFG_HOOK" || {
+    echo "FAIL: $DEVCFG_HOOK does not seed the mise config"; exit 1; }
+grep -q 'skel/.config/powershell/profile.ps1' "$DEVCFG_HOOK" || {
+    echo "FAIL: $DEVCFG_HOOK does not seed the pwsh profile"; exit 1; }
+# setup-dev seeds the same files itself: one run must yield the complete
+# setup even on an account whose first-login hook has not run yet.
+grep -q '/etc/skel/.config/mise/config.toml' "$B63_JUSTFILE" || {
+    echo "FAIL: setup-dev does not seed the mise config from skel"; exit 1; }
+grep -q '/etc/skel/.config/powershell/profile.ps1' "$B63_JUSTFILE" || {
+    echo "FAIL: setup-dev does not seed the pwsh profile from skel"; exit 1; }
 
 # --- bazzite-63: tray clock seconds one-shot autostart (Plasma 6 embeds the
 # --- digitalclock package in its plugin: no on-disk main.xml to patch) ---
