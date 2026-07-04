@@ -77,15 +77,6 @@ install-winboat:
     EOF
     echo "WinBoat installed."
 
-# Install JetBrains Rider (Flatpak). Free for non-commercial use only;
-# a commercial licence is required for company work.
-[group("apps")]
-install-rider:
-    #!/usr/bin/env bash
-    set -eo pipefail
-    echo "Installing JetBrains Rider (Flatpak). Note: commercial licence for work use."
-    flatpak install -y --noninteractive flathub com.jetbrains.Rider
-
 # Install SAP GUI for Java from an installer you provide (needs an SAP S-user).
 [group("apps")]
 install-sap-gui INSTALLER="":
@@ -144,13 +135,16 @@ install-default-flatpaks:
     sudo /usr/libexec/bazzite63-flatpak-manager
 
 # One-shot setup: everything installable without user-provided files
-# (default Flatpak set, dev toolchain, WinBoat, Rider, M365 launcher),
+# (default Flatpak set, dev toolchain, WinBoat, JetBrains Toolbox, M365 launcher),
 # then the health check. SAP GUI and IBM ACS stay manual: they need
 # licensed files you provide (`ujust install-sap-gui <jar>`,
 # `ujust install-ibm-acs <zip>`).
 # Idempotent: safe to re-run; uninstall what you don't need afterwards.
 [group("dev")]
-bazzite-63-setup: install-default-flatpaks setup-dev install-winboat install-rider setup-m365-pwa
+# install-jetbrains-toolbox is the bazzite-mx override (Bluefin/Aurora
+# non-brew method, 96-bazzite-mx-overrides.just): one shared namespace,
+# so the dependency resolves across justfiles.
+bazzite-63-setup: install-default-flatpaks setup-dev install-winboat install-jetbrains-toolbox setup-m365-pwa
     #!/usr/bin/env bash
     echo
     echo "Setup complete. Left out (need files you provide):"
