@@ -1,6 +1,12 @@
 # vim: set ft=make :
 #
-# 84-bazzite-virt.just — bazzite-mx OVERRIDE of Bazzite's upstream
+# 96-bazzite-mx-overrides.just — bazzite-mx OVERRIDE delle recipe ujust
+# upstream. Ogni recipe qui rimpiazza una recipe omonima di Bazzite, che
+# `build_files/mx/55-justfile-reconcile.sh` espunge chirurgicamente dai file
+# upstream al build (manifest recipe→file). Le recipe net-new (non-override)
+# stanno invece in 95-bazzite-mx.just.
+
+# setup-virtualization — bazzite-mx OVERRIDE of Bazzite's upstream
 # virtualization recipe.
 #
 # Bazzite's own `setup-virtualization` is flatpak-only (commit 8f1c46b4):
@@ -194,3 +200,115 @@ setup-virtualization ACTION="":
       fi
       sudo usermod -aG libvirt $USER
     fi
+
+# setup-sunshine — bazzite-mx OVERRIDE of Bazzite's upstream Sunshine recipe.
+#
+# bazzite-mx ships Sunshine as a system RPM (build_files/mx/65-sunshine.sh)
+# with the user unit `app-dev.lizardbyte.app.Sunshine.service` (alias
+# `sunshine.service`). Upstream's recipe (flatpak-flavored since commit
+# e05b27f8, brew kept for the Deck-oriented `enable-beta` path) manages
+# the dev.lizardbyte.app.Sunshine flatpak: on bazzite-mx its `enable`
+# would install a flatpak duplicating the RPM. This recipe drops the
+# flatpak/brew/Cellar handling, `enable-beta`, `update`, and `uninstall`
+# (Sunshine is part of the base image; removal is `rpm-ostree override
+# remove Sunshine`, noted in `help`), keeping `status`, `enable`,
+# `disable`, `portal`, `help`.
+
+# Setup and configure Sunshine Game Streaming host. Options: status | enable | disable | portal | help
+[group("gaming")]
+setup-sunshine ACTION="":
+    #!/usr/bin/bash
+    source /usr/lib/ujust/ujust.sh
+    OPTION={{ ACTION }}
+    SUNSHINE_UNIT="app-dev.lizardbyte.app.Sunshine.service"
+
+    get_status_token() {
+      local service_state
+      service_state="$(systemctl is-enabled --user $SUNSHINE_UNIT 2>/dev/null || true)"
+      if [[ "$service_state" == "enabled" ]]; then
+        echo "enable"
+      else
+        echo "disable"
+      fi
+    }
+
+    if [ "$OPTION" == "help" ]; then
+      echo "Usage: ujust setup-sunshine <option>"
+      echo "  <option>: Specify the quick option to skip the prompt"
+      echo "  Use 'status' to print the current service state"
+      echo "  Use 'enable' to enable+start the Sunshine user service"
+      echo "  Use 'disable' to stop+disable the Sunshine user service"
+      echo "  Use 'portal' to open the Sunshine management portal in a browser"
+      echo "  Use 'exit' to exit without making changes"
+      echo ""
+      echo "${b}Notes${n}:"
+      echo "  - Sunshine is shipped at build time as a system RPM (lizardbyte/stable COPR)."
+      echo "    Updates flow automatically with ${b}bootc upgrade${n} / ${b}ujust update${n}."
+      echo "  - To remove Sunshine entirely: ${b}rpm-ostree override remove Sunshine${n}, then reboot."
+      echo "  - Default service state on a fresh image: ${b}disabled${n} (Aurora pattern)."
+      echo "  - Port forwarding for streaming over the internet: 47984 (HTTPS), 47989 (HTTP),"
+      echo "    47998-48000/UDP (video/audio/control), 48010 (RTSP)."
+      exit 0
+    elif [ "$OPTION" == "status" ]; then
+      echo "$(get_status_token)"
+      exit 0
+    elif [ "$OPTION" == "" ]; then
+      case "$(get_status_token)" in
+        "enable")
+          SERVICE_STATE="${green}${b}Enabled${n}"
+          ;;
+        *)
+          SERVICE_STATE="${yellow}${b}Disabled${n}"
+          ;;
+      esac
+      echo "Sunshine user service is $SERVICE_STATE"
+      OPTION=$(Choose "Enable" "Disable" "Open Portal" "Exit")
+    fi
+
+    if [[ "${OPTION,,}" =~ ^enable ]]; then
+      echo "Enabling Sunshine user service ($SUNSHINE_UNIT)..."
+      systemctl --user enable --now "$SUNSHINE_UNIT"
+      echo ""
+      echo "Sunshine is now ${green}${b}running${n}."
+      echo "Open the management portal: ${b}ujust setup-sunshine portal${n} (or https://localhost:47990)"
+      echo "First-time setup will ask you to create a credential pair to pair Moonlight clients."
+    elif [[ "${OPTION,,}" =~ ^disable ]]; then
+      echo "Disabling Sunshine user service ($SUNSHINE_UNIT)..."
+      systemctl --user disable --now "$SUNSHINE_UNIT" || true
+      echo "Sunshine is now ${yellow}${b}stopped${n}."
+    elif [[ "${OPTION,,}" =~ ^(portal|open) ]]; then
+      echo "Opening Sunshine management portal..."
+      xdg-open https://localhost:47990
+    elif [[ "${OPTION,,}" =~ ^exit ]]; then
+      echo "Exiting without making changes."
+      exit 0
+    fi
+
+# Install JetBrains Toolbox | https://www.jetbrains.com/toolbox-app/
+#
+# bazzite-mx OVERRIDE della recipe brew upstream (82-bazzite-apps.just).
+# Upstream installa via Homebrew cask (ublue-os/tap → jetbrains-toolbox-linux);
+# qui il metodo non-brew Aurora/Bluefin (bluefin PR #397, maturato in #2645 /
+# aurora #581): risolve l'ultima build dalla JetBrains data-services API,
+# scarica + verifica sha256 il tarball, installa in
+# ~/.local/share/JetBrains/ToolboxApp/ e lancia (self-setup: desktop entry,
+# auto-update). Nessun Homebrew, nessun Cellar. Gira come utente ($HOME) —
+# niente sudo. jq è nell'immagine base.
+[group("apps")]
+install-jetbrains-toolbox:
+    #!/usr/bin/bash
+    set -eo pipefail
+    pushd "$(mktemp -d)" >/dev/null
+    echo "Resolving latest JetBrains Toolbox release..."
+    curl -sSfL -o releases.json "https://data.services.jetbrains.com/products/releases?code=TBA&latest=true&type=release"
+    BUILD_VERSION=$(jq -r '.TBA[0].build' ./releases.json)
+    DOWNLOAD_LINK=$(jq -r '.TBA[0].downloads.linux.link' ./releases.json)
+    CHECKSUM_LINK=$(jq -r '.TBA[0].downloads.linux.checksumLink' ./releases.json)
+    echo "Installing JetBrains Toolbox ${BUILD_VERSION}..."
+    curl -sSfL -O "${DOWNLOAD_LINK}"
+    curl -sSfL "${CHECKSUM_LINK}" | sha256sum -c
+    tar zxf "jetbrains-toolbox-${BUILD_VERSION}.tar.gz"
+    mkdir -p "${HOME}/.local/share/JetBrains/ToolboxApp/"
+    mv "jetbrains-toolbox-${BUILD_VERSION}"/* "${HOME}/.local/share/JetBrains/ToolboxApp/"
+    echo "Launching JetBrains Toolbox..."
+    "${HOME}/.local/share/JetBrains/ToolboxApp/bin/jetbrains-toolbox" &> /dev/null &

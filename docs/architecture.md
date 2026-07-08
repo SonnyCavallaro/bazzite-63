@@ -69,9 +69,18 @@ Each decade owns one domain; `build-mx.sh` runs the scripts in version order:
 | 20 | Virtualization | `20-virtualization.sh`, `21-virt-manager-flatpak-exclude.sh` |
 | 30 | IDE + git tools | `30-ide.sh`, `35-git-tools.sh` |
 | 40 | Dev CLI (rpms + pinned binaries) | `40-dev-cli-rpms.sh`, `41-dev-cli-pinned.sh` |
-| 50 | Bazzite extras + justfile glue | `50-bazzite-extras.sh`, `55-justfile-import.sh` |
+| 50 | Bazzite extras + justfile reconcile | `50-bazzite-extras.sh`, `55-justfile-reconcile.sh` |
 | 60 | Desktop apps + repo/key provisioning for opt-in layering | `60-desktop-apps.sh`, `61-firefox-rpm.sh`, `62-firefox-flatpak-exclude.sh`, `64-1password-key.sh`, `65-sunshine.sh` |
 | 70 | Out-of-tree kmods install | `70-msi-ec.sh`, `71-acpi-ec.sh` |
+
+`55-justfile-reconcile.sh` has two responsibilities: (1) **surgical override removal** —
+for each recipe bazzite-mx replaces (`setup-sunshine`, `setup-virtualization`,
+`install-jetbrains-toolbox`), it strips the same-named recipe from its upstream `.just`
+file (`just` rejects duplicate recipe names across imports), hard-failing the build if a
+named recipe is absent (upstream-drift guard); (2) **import registration** — it
+idempotently appends `import` directives for both `95-bazzite-mx.just` (net-new recipes)
+and `96-bazzite-mx-overrides.just` (the override bodies) to Bazzite's master
+`/usr/share/ublue-os/justfile`.
 
 ### `build_files/kmods/` — out-of-tree kernel modules
 

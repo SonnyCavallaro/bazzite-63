@@ -126,18 +126,26 @@ if [ -e /usr/lib/bootc/kargs.d/01-bazzite-mx-virt.toml ]; then
     exit 1
 fi
 
-# --- Phase 4: setup-virtualization recipe override ---
-VIRT_JUSTFILE=/usr/share/ublue-os/just/84-bazzite-virt.just
-if [ ! -f "$VIRT_JUSTFILE" ]; then
-    echo "FAIL: $VIRT_JUSTFILE missing"
+# --- Phase 4: setup-virtualization override (unified mechanism) ---
+# Our recipe lives in 96-bazzite-mx-overrides.just; the reconcile step strips the
+# upstream copy from 84-bazzite-virt.just. Exactly one definition must remain.
+OVERRIDE_JUSTFILE=/usr/share/ublue-os/just/96-bazzite-mx-overrides.just
+if [ ! -f "$OVERRIDE_JUSTFILE" ]; then
+    echo "FAIL: $OVERRIDE_JUSTFILE missing"
     exit 1
 fi
-grep -q 'bazzite-mx OVERRIDE of Bazzite' "$VIRT_JUSTFILE" || {
-    echo "FAIL: $VIRT_JUSTFILE is the upstream version (override not applied)"
+vcount=$(grep -rlE '^setup-virtualization[ :]' /usr/share/ublue-os/just/ | wc -l)
+[ "$vcount" -eq 1 ] || { echo "FAIL: setup-virtualization defined in $vcount files (expected 1)"; exit 1; }
+grep -qE '^setup-virtualization[ :]' "$OVERRIDE_JUSTFILE" || {
+    echo "FAIL: setup-virtualization not found in $OVERRIDE_JUSTFILE"
     exit 1
 }
-if grep -qE '^[[:space:]]*flatpak install.*org\.virt_manager\.virt-manager' "$VIRT_JUSTFILE"; then
-    echo "FAIL: $VIRT_JUSTFILE contains a residual 'flatpak install' line for virt-manager"
+if grep -qE '^setup-virtualization[ :]' /usr/share/ublue-os/just/84-bazzite-virt.just 2>/dev/null; then
+    echo "FAIL: setup-virtualization still present in upstream 84-bazzite-virt.just (reconcile removal failed)"
+    exit 1
+fi
+if grep -qE '^[[:space:]]*flatpak install.*org\.virt_manager\.virt-manager' "$OVERRIDE_JUSTFILE"; then
+    echo "FAIL: $OVERRIDE_JUSTFILE contains a residual 'flatpak install' line for virt-manager"
     exit 1
 fi
 
@@ -329,6 +337,21 @@ grep -q "import \"/usr/share/ublue-os/just/95-bazzite-mx.just\"" /usr/share/ublu
     echo "FAIL: import line for 95-bazzite-mx.just missing from master justfile"
     exit 1
 }
+grep -q "import \"/usr/share/ublue-os/just/96-bazzite-mx-overrides.just\"" /usr/share/ublue-os/justfile || {
+    echo "FAIL: import line for 96-bazzite-mx-overrides.just missing from master justfile"
+    exit 1
+}
+
+# --- Phase 10: every justfile world-readable (ujust runs unprivileged) ---
+# The reconcile rewrite must keep the base image's 0644 on every stripped
+# justfile: a root-only file makes `ujust` fail with Permission denied for
+# regular users on the whole imported tree, not just the stripped file.
+UNREADABLE_JUST=$(find /usr/share/ublue-os/just/ /usr/share/ublue-os/justfile ! -perm -o+r 2>/dev/null || true)
+if [ -n "$UNREADABLE_JUST" ]; then
+    echo "FAIL: justfiles not world-readable (ujust breaks for unprivileged users):"
+    echo "$UNREADABLE_JUST"
+    exit 1
+fi
 
 # --- Phase 11: Desktop apps (gparted + ptyxis) ---
 DESKTOP_RPMS=( gparted ptyxis )
@@ -378,22 +401,46 @@ if [ "$sun_state" != "disabled" ]; then
     echo "FAIL: $SUNSHINE_UNIT --global state is '$sun_state' (expected 'disabled')"
     exit 1
 fi
-SUNSHINE_JUSTFILE=/usr/share/ublue-os/just/82-bazzite-sunshine.just
-if [ ! -f "$SUNSHINE_JUSTFILE" ]; then
-    echo "FAIL: $SUNSHINE_JUSTFILE missing"
-    exit 1
-fi
-grep -q 'bazzite-mx OVERRIDE of Bazzite' "$SUNSHINE_JUSTFILE" || {
-    echo "FAIL: $SUNSHINE_JUSTFILE is the upstream brew-flavored version"
+# setup-sunshine override lives in 96; reconcile strips the upstream copy.
+scount=$(grep -rlE '^setup-sunshine[ :]' /usr/share/ublue-os/just/ | wc -l)
+[ "$scount" -eq 1 ] || { echo "FAIL: setup-sunshine defined in $scount files (expected 1)"; exit 1; }
+grep -qE '^setup-sunshine[ :]' "$OVERRIDE_JUSTFILE" || {
+    echo "FAIL: setup-sunshine not found in $OVERRIDE_JUSTFILE"
     exit 1
 }
-if grep -qE '^[[:space:]]*[^#].*homebrew\.sunshine' "$SUNSHINE_JUSTFILE"; then
-    echo "FAIL: $SUNSHINE_JUSTFILE contains a residual 'homebrew.sunshine' reference outside comments"
+if grep -qE '^setup-sunshine[ :]' /usr/share/ublue-os/just/82-bazzite-sunshine.just 2>/dev/null; then
+    echo "FAIL: setup-sunshine still present in upstream 82-bazzite-sunshine.just (reconcile removal failed)"
+    exit 1
+fi
+if grep -qE '^[[:space:]]*[^#].*homebrew\.sunshine' "$OVERRIDE_JUSTFILE"; then
+    echo "FAIL: $OVERRIDE_JUSTFILE contains a residual 'homebrew.sunshine' reference outside comments"
     exit 1
 fi
 SUNSHINE_NAG=/usr/share/ublue-os/announcements/sunshine-brew.msg.json
 if [ -f "$SUNSHINE_NAG" ]; then
     echo "FAIL: $SUNSHINE_NAG should have been removed by 65-sunshine.sh"
+    exit 1
+fi
+
+# --- Phase 5: install-jetbrains-toolbox non-brew override ---
+# Bazzite ships a brew-based recipe in 82-bazzite-apps.just; bazzite-mx replaces it
+# with the non-brew Aurora/Bluefin method in 96. Exactly one definition, ours, no brew.
+jcount=$(grep -rlE '^install-jetbrains-toolbox:' /usr/share/ublue-os/just/ | wc -l)
+[ "$jcount" -eq 1 ] || { echo "FAIL: install-jetbrains-toolbox defined in $jcount files (expected 1)"; exit 1; }
+grep -qE '^install-jetbrains-toolbox:' "$OVERRIDE_JUSTFILE" || {
+    echo "FAIL: install-jetbrains-toolbox not found in $OVERRIDE_JUSTFILE"
+    exit 1
+}
+if grep -qE '^install-jetbrains-toolbox:' /usr/share/ublue-os/just/82-bazzite-apps.just; then
+    echo "FAIL: brew install-jetbrains-toolbox still present in upstream 82-bazzite-apps.just (reconcile removal failed)"
+    exit 1
+fi
+grep -q 'data.services.jetbrains.com' "$OVERRIDE_JUSTFILE" || {
+    echo "FAIL: jetbrains recipe in $OVERRIDE_JUSTFILE does not use the JetBrains data-services API (non-brew method missing)"
+    exit 1
+}
+if grep -rqE 'brew install --cask jetbrains-toolbox' /usr/share/ublue-os/just/; then
+    echo "FAIL: a brew-based jetbrains-toolbox recipe is still present image-wide"
     exit 1
 fi
 
