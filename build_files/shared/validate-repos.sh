@@ -73,6 +73,7 @@ OTHER_REPOS=(
     "fedora-cisco-openh264.repo"
     "fedora-coreos-pool.repo"
     "terra.repo"
+    "google-chrome.repo"
 )
 
 for repo_name in "${OTHER_REPOS[@]}"; do
