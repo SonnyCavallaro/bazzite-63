@@ -109,7 +109,7 @@ install-ibm-acs ARCHIVE="":
     fi
     echo "IBM ACS extracted to $dest (launch: java -jar \"$dest/.../acsbundle.jar\")."
 
-# Create a Microsoft 365 web-app (PWA) launcher backed by the Chrome Flatpak.
+# Create a Microsoft 365 web-app (PWA) launcher backed by the system Chrome.
 [group("apps")]
 setup-m365-pwa:
     #!/usr/bin/env bash
@@ -118,7 +118,7 @@ setup-m365-pwa:
     cat > "$HOME/.local/share/applications/m365.desktop" <<EOF
     [Desktop Entry]
     Name=Microsoft 365
-    Exec=flatpak run com.google.Chrome --app=https://www.office.com
+    Exec=/usr/bin/google-chrome-stable --app=https://www.office.com
     Type=Application
     Categories=Office;
     Terminal=false
@@ -189,13 +189,14 @@ b63-status:
     # back to the XDG mime chain, which also sees /etc/xdg/mimeapps.list.
     browser=$(xdg-settings get default-web-browser 2>/dev/null || true)
     [[ -n "$browser" ]] || browser=$(xdg-mime query default x-scheme-handler/http 2>/dev/null || echo n/a)
-    if [[ "$browser" == "com.google.Chrome.desktop" ]] \
-       || [[ "$(xdg-mime query default x-scheme-handler/http 2>/dev/null)" == "com.google.Chrome.desktop" ]]; then
-        ok "default browser: Chrome"
+    if [[ "$browser" == "google-chrome.desktop" ]] \
+       || [[ "$(xdg-mime query default x-scheme-handler/http 2>/dev/null)" == "google-chrome.desktop" ]]; then
+        ok "default browser: Chrome (system RPM)"
     else
         # xdg-settings SET is broken on Bazzite (qtpaths missing), so the hint
-        # goes through the install recipe / kwriteconfig6 instead.
-        ko "default browser: $browser — fix: ujust install-default-flatpaks; if Chrome is already installed: kwriteconfig6 --file kdeglobals --group General --key BrowserApplication com.google.Chrome.desktop"
+        # goes through kwriteconfig6 instead. Chrome itself is baked in the
+        # image: a wrong default is a per-user config issue, never a missing app.
+        ko "default browser: $browser — fix: kwriteconfig6 --file kdeglobals --group General --key BrowserApplication google-chrome.desktop"
     fi
 
     if command -v mise >/dev/null 2>&1 || [ -x /home/linuxbrew/.linuxbrew/bin/mise ]; then

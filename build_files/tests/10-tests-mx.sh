@@ -602,7 +602,7 @@ grep -qxF "Exec=$CLOCK_SCRIPT" "$CLOCK_AUTOSTART" || {
 
 # --- bazzite-63: GUI apps in the Flatpak default-install list ---
 FLATPAK_INSTALL_LIST=/usr/share/ublue-os/bazzite/flatpak/install
-for app in com.google.Chrome org.mozilla.thunderbird me.proton.Pass \
+for app in org.mozilla.thunderbird me.proton.Pass \
            io.dbeaver.DBeaverCommunity org.remmina.Remmina \
            com.parsecgaming.parsec com.discordapp.Discord; do
     grep -qxF "$app" "$FLATPAK_INSTALL_LIST" || { echo "FAIL: $app not in Flatpak default-install"; exit 1; }
@@ -641,16 +641,36 @@ if [ "$flatpak_refs_installed" -ne "$flatpak_refs_expected" ]; then
     exit 1
 fi
 
+# --- bazzite-63: Google Chrome baked as system RPM (vendored repo, enabled=0) ---
+CHROME_REPO=/etc/yum.repos.d/google-chrome.repo
+[ -f "$CHROME_REPO" ] || { echo "FAIL: $CHROME_REPO missing"; exit 1; }
+grep -q '^enabled=0' "$CHROME_REPO" || {
+    echo "FAIL: $CHROME_REPO must ship enabled=0 (61-chrome-rpm.sh seds it back after install)"; exit 1; }
+rpm -q google-chrome-stable >/dev/null || {
+    echo "FAIL: google-chrome-stable not installed (61-chrome-rpm.sh broken?)"; exit 1; }
+[ -f /usr/share/applications/google-chrome.desktop ] || {
+    echo "FAIL: google-chrome.desktop missing"; exit 1; }
+# /opt payload relocated under /usr (clean-stage wipes /var): the tmpfiles
+# entry recreates the /var/opt/google link at boot, keeping /opt/google/...
+# paths resolving (pattern: AmyOS fix-opt.sh).
+[ -x /usr/lib/opt/google/chrome/google-chrome ] || {
+    echo "FAIL: Chrome payload not relocated to /usr/lib/opt/google (61-chrome-rpm.sh section 3)"; exit 1; }
+grep -qxF 'L+ /var/opt/google - - - - /usr/lib/opt/google' /usr/lib/tmpfiles.d/bazzite-63-chrome-opt.conf || {
+    echo "FAIL: tmpfiles.d entry for /var/opt/google missing"; exit 1; }
+# Updates arrive with image rebuilds: Chrome's own repo-maintenance cron
+# must not ship (it would re-enable the repo on running systems).
+[ ! -e /etc/cron.daily/google-chrome ] || {
+    echo "FAIL: /etc/cron.daily/google-chrome shipped (self-updating machinery must stay off)"; exit 1; }
+
 # --- bazzite-63: Chrome as system-wide default browser (XDG default merged at build) ---
 # Our entries are MERGED into Bazzite's own /etc/xdg/mimeapps.list by
-# 68-flatpak-apps.sh (a static replacement file would clobber upstream
-# entries like the Bazaar .flatpakref handler). No first-login hook: a hook
-# racing the Flatpak install stamps itself before Chrome exists and never
-# retries; users can still override per-user via ~/.config/mimeapps.list.
-for entry in 'x-scheme-handler/http=com.google.Chrome.desktop' \
-             'x-scheme-handler/https=com.google.Chrome.desktop' \
-             'text/html=com.google.Chrome.desktop' \
-             'application/xhtml+xml=com.google.Chrome.desktop'; do
+# 61-chrome-rpm.sh (a static replacement file would clobber upstream
+# entries like the Bazaar .flatpakref handler); users can still override
+# per-user via ~/.config/mimeapps.list.
+for entry in 'x-scheme-handler/http=google-chrome.desktop' \
+             'x-scheme-handler/https=google-chrome.desktop' \
+             'text/html=google-chrome.desktop' \
+             'application/xhtml+xml=google-chrome.desktop'; do
     grep -qxF "$entry" /etc/xdg/mimeapps.list || {
         echo "FAIL: /etc/xdg/mimeapps.list missing '$entry'"; exit 1; }
 done
