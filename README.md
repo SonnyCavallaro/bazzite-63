@@ -24,6 +24,8 @@ place, per-user, with no reboot. So bazzite-63 bakes as little as possible:
 - **Runtimes** (Node, Python, Java, .NET) → `mise`, per-project, in `$HOME`.
 - **CLI tools** (PowerShell, sqlcmd, …) → `brew`, in `$HOME`.
 - **GUI apps** → Flatpak (installed on demand by `ujust bazzite-63-setup`, then auto-updating).
+- **Google Chrome is the one baked GUI app** (system RPM from Google's official
+  repo, available to every user out of the box); it updates with image rebuilds.
 - The image itself carries only Bazzite plus the inherited bazzite-mx developer
   baseline (Docker, Podman, the libvirt/QEMU virtualization stack, VSCode,
   GitKraken, observability CLIs, …).
@@ -67,7 +69,7 @@ Every piece of the one-shot setup is also available as its own recipe:
 
 | Recipe | What it does |
 |---|---|
-| `ujust install-default-flatpaks` | Default GUI Flatpak set: Google Chrome (default browser), Thunderbird, Proton Pass, DBeaver Community, Remmina, Parsec, Discord — auto-updating once installed |
+| `ujust install-default-flatpaks` | Default GUI Flatpak set: Thunderbird, Proton Pass, DBeaver Community, Remmina, Parsec, Discord — auto-updating once installed |
 | `ujust setup-dev` | `mise` + CLI tools via `brew` (PowerShell, sqlcmd), then the runtimes pinned in `~/.config/mise/config.toml`: Node LTS, Python 3.14, Temurin 21, .NET 10 |
 | `ujust install-winboat` | WinBoat AppImage (run Windows apps in a container; beta) |
 | `ujust install-jetbrains-toolbox` | JetBrains Toolbox (per-user, checksum-verified) — install and update the JetBrains IDEs (Rider, …) from its UI |
@@ -78,8 +80,10 @@ Every piece of the one-shot setup is also available as its own recipe:
 
 ### Baked-in niceties
 
-- **Chrome as the system-wide default browser** (merged into the XDG defaults at
-  build time; per-user override always wins).
+- **Google Chrome baked into the image** — system RPM from Google's official
+  repo, present for every user with no setup step, and set as the system-wide
+  default browser (merged into the XDG defaults at build time; per-user
+  override always wins).
 - **Konsole defaults to a PowerShell profile** — via skel for new accounts and
   a first-login hook for accounts that predate the image, with a bash fallback
   until `setup-dev` has installed `pwsh`, so every install has a working
