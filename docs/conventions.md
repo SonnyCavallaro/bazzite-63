@@ -102,6 +102,7 @@ teackot-msi.repo
 fedora-cisco-openh264.repo
 fedora-coreos-pool.repo
 terra.repo
+google-chrome.repo
 ```
 
 The lean image currently vendors only a subset of these files in git
