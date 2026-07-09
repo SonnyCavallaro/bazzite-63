@@ -47,6 +47,7 @@ REQUIRED=(
     /usr/share/ublue-os/image-info.json
     /usr/lib/os-release
     /etc/xdg/kcm-about-distrorc
+    /etc/xdg/mimeapps.list
     /etc/passwd
     /etc/group
     /etc/dnf/dnf.conf
