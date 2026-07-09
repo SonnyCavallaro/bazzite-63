@@ -26,7 +26,6 @@ INSTALL_LIST=/usr/share/ublue-os/bazzite/flatpak/install
 # Idempotent: append each app-id only if not already present, so we extend the
 # upstream list instead of replacing it.
 for app in \
-    com.google.Chrome \
     org.mozilla.thunderbird \
     me.proton.Pass \
     io.dbeaver.DBeaverCommunity \
@@ -39,22 +38,5 @@ done
 # The appends land in place on a base-image file (gotcha #40): rewrite the list
 # onto a fresh inode so the appended tail survives the layer commit.
 rewrite_fresh_inode "$INSTALL_LIST"
-
-# Chrome as system-wide default browser. Merged into Bazzite's own
-# /etc/xdg/mimeapps.list (which ships e.g. the Bazaar .flatpakref handler)
-# instead of shipping a static file that would clobber upstream entries.
-# A static default has no timing races (a first-login hook stamps itself
-# before Chrome's Flatpak exists and never retries); users can still
-# override per-user via ~/.config/mimeapps.list.
-XDG_DEFAULTS=/etc/xdg/mimeapps.list
-[ -f "$XDG_DEFAULTS" ] || printf '[Default Applications]\n' > "$XDG_DEFAULTS"
-grep -q '^\[Default Applications\]' "$XDG_DEFAULTS" || printf '\n[Default Applications]\n' >> "$XDG_DEFAULTS"
-for entry in \
-    'x-scheme-handler/http=com.google.Chrome.desktop' \
-    'x-scheme-handler/https=com.google.Chrome.desktop' \
-    'text/html=com.google.Chrome.desktop' \
-    'application/xhtml+xml=com.google.Chrome.desktop'; do
-    grep -qxF "$entry" "$XDG_DEFAULTS" || sed -i "/^\[Default Applications\]$/a $entry" "$XDG_DEFAULTS"
-done
 
 echo "::endgroup::"
