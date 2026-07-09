@@ -26,6 +26,9 @@ reboot; a Flatpak / `mise` / `brew` tool updates per-user with no reboot. So:
 - **Runtimes** (Node, Python, Java, .NET) → `mise` (per-user, `~/.config/mise/`).
 - **CLI tools** (PowerShell, sqlcmd, …) → `brew` (per-user).
 - **GUI apps** → Flatpak default set (`build_files/mx/68-flatpak-apps.sh`), installed on demand via `ujust bazzite-63-setup` / `install-default-flatpaks`.
+- **Exception — Google Chrome is baked** (system RPM, `build_files/mx/61-chrome-rpm.sh`,
+  vendored `google-chrome.repo`): present for every user at the OS level, default
+  browser via build-time XDG merge; updates ride image rebuilds.
 - The image carries Bazzite + the inherited bazzite-mx developer baseline only.
 
 `ujust bazzite-63-setup` provisions everything in one command (default Flatpak
@@ -52,9 +55,9 @@ standalone recipe (`install-default-flatpaks`, `setup-dev`, …) and
    `system_files/etc/yum.repos.d/`, register the basename in `OTHER_REPOS` in
    `validate-repos.sh`, install via `dnf5 -y install --enablerepo=<section>
    <pkg>`. The validator hard-fails the build if a registered repo is left
-   enabled. (The lean image vendors no extra repos beyond the bazzite-mx baseline
-   — docker-ce, vscode, 1password, teackot-msi — prefer Flatpak / `brew` / `mise`
-   for new tools before reaching for a baked RPM.)
+   enabled. (Vendored repos: the bazzite-mx baseline — docker-ce, vscode,
+   1password, teackot-msi — plus our google-chrome; prefer Flatpak / `brew` /
+   `mise` for new tools before reaching for a baked RPM.)
 
 3. **The build runs in CI, not locally.** A full Bazzite image build is heavy and
    impractical on a non-Linux dev box. Validate by pushing a branch and opening
