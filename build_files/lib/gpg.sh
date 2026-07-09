@@ -8,6 +8,9 @@
 # `gpg --show-keys` on the file downloaded from the URL named above it. The
 # base's own keys are pinned in bazzite-mx's table.
 declare -A KEY_FPR=(
+    # "Google Inc. (Linux Packages Signing Authority) <linux-packages-keymaster@google.com>"
+    # dl.google.com/linux/linux_signing_key.pub
+    ["/etc/pki/rpm-gpg/RPM-GPG-KEY-google-chrome"]=EB4C1BFD4F042F6DDDCCEC917721F63BD38B4796
 )
 
 # The primary key's fingerprint of an armored key file, 40 upper-case hex

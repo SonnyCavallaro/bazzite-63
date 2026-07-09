@@ -37,7 +37,8 @@ gh workflow run build.yml --repo SonnyCavallaro/bazzite-63 --ref <branch> -f rec
 - `build_files/`: `build.sh` runs `NN-<feature>.sh` in version order; `lib/` the sourced
   libraries; `tests/` one smoke test per script plus `run.sh`. Each file's role:
   `docs/architecture.md`.
-- `system_files/`: copied over `/`; the registry trust of `ghcr.io/sonnycavallaro`.
+- `system_files/`: copied over `/`; the registry trust of `ghcr.io/sonnycavallaro`, vendored
+  `.repo` files and keys.
 - `.github/scripts/`: one owner per CI artefact, each with a `--self-test`.
 - `base-cosign.pub`: bazzite-mx's `cosign.pub`, the key the base is verified against;
   `cosign.pub`: this repository's, the key a host verifies the image against.
@@ -58,6 +59,9 @@ gh workflow run build.yml --repo SonnyCavallaro/bazzite-63 --ref <branch> -f rec
   once and fails the build otherwise (`docs/conventions.md` § Build scripts).
 - Vendor RPMs stay unpinned; a pin enters only against an observed problem, cited. The base
   digest and the vendor keys (`KEY_FPR` in `lib/gpg.sh`) are pinned on purpose.
+- A third-party package comes from a `.repo` vendored under `system_files/etc/yum.repos.d/`,
+  every section `enabled=0`, installed with `install_from_repo`: `90-validate-repos.sh` fails
+  the build on a repository left enabled or modified.
 - A commit message is `<type>[(<scope>)]: <what>` within 72 columns with no trailing period and
   no trailer, or `check-commits.sh` fails the lint job; a body is optional, after a blank line,
   in natural lines, one per point, never hard-wrapped.

@@ -260,16 +260,40 @@ known-bad still red after it. The rules above add to the earlier bullets of this
 
 - One script per feature, `NN-<feature>.sh` under `build_files/`, sourcing `lib/env.sh` first.
   `build.sh` runs them in version order and stops at the first failure.
+- Third-party packages come from a `.repo` vendored under `system_files/etc/yum.repos.d/` with
+  every section `enabled=0`, installed with `install_from_repo <section> <pkg>...`, which
+  enables the section for one dnf5 transaction. A COPR the base already ships disabled
+  (`ublue-os/packages`) goes through the same `install_from_repo`, with its
+  `copr:copr.fedorainfracloud.org:<owner>:<project>` id, as bazzite-dx does; the base's file is
+  never touched.
 - The gate `90-validate-repos.sh` runs after the installs and refuses a vendored file that is
   absent, differs from the vendored copy or carries `enabled=1`; a base repository file the
   build modified; any other added file left enabled; and an enabled set, as `dnf5 repolist`
   reports it, that differs from the base's. It reads the snapshots `00-prep.sh` recorded, so a
   file under a name nobody listed is caught too.
+- The enablement lives in the `.repo` file, never in `dnf5 config-manager setopt`. `setopt`
+  writes to an override file under `/etc/dnf/repos.override.d/` and leaves the repository file
+  untouched (`man dnf5-config-manager`), so the state would sit in a file the gate's byte
+  comparison never reads; its `dnf5 repolist` comparison is what fails the build on it.
+  Chrome is the case: its `%post` would write `google-chrome.repo` again, so the build turns
+  that off, puts the vendored copy back, and the gate proves it.
 - Nothing is pinned to a release for vendor RPMs: the build resolves the latest, and a pin
   enters only against an observed problem, with the observation cited. The exception is the
   base image, pinned to the digest CI resolved (`resolve-base.sh`) and verified against
   `base-cosign.pub` (`verify-base.sh`), so the build reads the base bazzite-mx signed and not
   whatever the tag points at a minute later.
+- A vendor's signing key is pinned on purpose: the armored key ships under
+  `system_files/etc/pki/rpm-gpg/`, the `.repo` reads it with `gpgkey=file://`, and the feature
+  script calls `assert_key_fingerprint` before the install. The fingerprint is pinned once in
+  the `KEY_FPR` table of `lib/gpg.sh`, with the URL each key was read from, so a rotation is a
+  reviewable diff and never a download at build time. The base's own keys are pinned in
+  bazzite-mx's table, not here.
+- A package that unpacks under `/opt` needs `mkdir -p /var/opt` before its install: `/opt` is a
+  symlink to `var/opt` and the directory does not exist in a build. `95-clean-stage.sh` then
+  empties `/var`, so the feature script moves `/var/opt/<name>` to `/usr/lib/opt/<name>` and
+  writes one tmpfiles `L+` line to recreate the link on the host, as `41-chrome.sh` does. Paths
+  baked into the application keep their `/opt/...` form, so its smoke test reads them under
+  `/usr/lib/opt` and checks the links with `readlink`: the link dangles in the build.
 - A package `%post` runs in the build, not on the host. Read it with `rpm -qp --scripts` before
   the package enters a script, and handle every effect that belongs to a host explicitly. A
   `groupadd` in a `%post` lands in `/etc/group`; `95-clean-stage.sh` relocates the accounts to

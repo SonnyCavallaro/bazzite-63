@@ -15,7 +15,9 @@ onto a release only through the gate that verified its signature.
 - Signing trust for `ghcr.io/sonnycavallaro/*`, next to bazzite-mx's own: a host pulls only
   what this repository signed.
 - `ujust migrate` and `ujust verify-host`, bazzite-mx's, pointed at this image's registry.
-- Firefox back to Bazzite's Flatpak: bazzite-mx's Fedora RPM removed, the Flatpak allowed.
+- Firefox out of the image: bazzite-mx's Fedora RPM removed, Bazzite's Flatpak allowed.
+- Google Chrome as a system RPM from Google's repository, the default web browser, its Flatpak
+  denied.
 
 ## Switch a host
 

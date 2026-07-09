@@ -40,12 +40,14 @@ clean. A Bazzite host gets every step, and the `fstab` and local-RPM cautions of
   `ostree-image-signed:docker://ghcr.io/sonnycavallaro/bazzite-63:stable`, and the scope it
   reads in `policy.json` is `ghcr.io/sonnycavallaro`, with
   `/etc/containers/registries.d/sonnycavallaro.yaml`.
-- Firefox is the Flatpak ([`divergences.md`](divergences.md) § Firefox as a Flatpak).
-  `verify-host` prints `OK: the Firefox Flatpak is installed (the image's browser)`, or an
-  `INFO:` line when it is missing; `migrate`'s step 8 prints no Firefox profile copy. On a host
-  coming from bazzite-mx the RPM's profile stays in `~/.mozilla` or `~/.config/mozilla`, and the
-  Flatpak keeps its own under `~/.var/app/org.mozilla.firefox`; copy it over before the
-  Flatpak's first start:
+- Chrome is the browser and Firefox leaves the image ([`divergences.md`](divergences.md) §
+  Google Chrome, the default browser). `verify-host` prints
+  `OK: no Chrome Flatpak (the RPM is the image's browser)`, or an `INFO:` line with the profile
+  copy while a Chrome Flatpak is installed beside the RPM, and `migrate`'s step 8 prints the
+  same copy. On a host coming from bazzite-mx the Firefox RPM's profile stays in `~/.mozilla`
+  or `~/.config/mozilla`; to keep Firefox, install its Flatpak
+  (`flatpak install flathub org.mozilla.firefox`) and copy the profile over before its first
+  start:
 
   ```bash
   app=~/.var/app/org.mozilla.firefox

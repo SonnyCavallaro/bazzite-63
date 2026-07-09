@@ -27,10 +27,10 @@ set -euo pipefail
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
 
-# Packages of three of the base's five vendored repositories, and with the
-# modules and the ntfs route below: what the image inherits from bazzite-mx,
-# still there on top of this layer.
-PROBE_PACKAGES="docker-ce code 1password"
+# google-chrome-stable proves this layer's vendored repository was installed;
+# the others, from three of the base's five, with the modules and the ntfs
+# route below, that what the image inherits from bazzite-mx is still there.
+PROBE_PACKAGES="docker-ce code 1password google-chrome-stable"
 
 # --- the labels ---------------------------------------------------------------
 

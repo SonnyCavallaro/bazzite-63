@@ -1,0 +1,13 @@
+# Google Chrome, stable channel: the stanza the RPM's own %post writes
+# (https://www.google.com/linuxrepositories/), with enabled=0 (41-chrome.sh
+# enables it for one transaction) and the key read from the copy under
+# /etc/pki/rpm-gpg. The %post would write this file again; the build turns it
+# off with /etc/default/google-chrome and restores this copy, which
+# 90-validate-repos.sh checks.
+
+[google-chrome]
+name=google-chrome
+baseurl=https://dl.google.com/linux/chrome/rpm/stable/x86_64
+enabled=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-google-chrome

@@ -6,7 +6,7 @@ with its source. What bazzite-mx itself changes over Bazzite, and why, is its ow
 every entry there holds here too unless an entry below says otherwise.
 
 Contents: layered on bazzite-mx's signed image · identity and signing · the host helpers ·
-Firefox as a Flatpak.
+Firefox out of the image · Google Chrome, the default browser.
 
 ## Layered on bazzite-mx's signed image
 
@@ -46,25 +46,56 @@ bazzite-mx ships `ujust migrate`, `ujust verify-host` and the library they share
 a host to bazzite-mx's registry and check bazzite-mx's scope. `12-host-helpers.sh` renames the
 scope and its `registries.d` file to this image's in the three files, fixtures included, after
 checking that each line it relies on is there exactly once; everything else in the helpers is
-bazzite-mx's, apart from the browser items of § Firefox as a Flatpak. What they check and do is
-bazzite-mx's
+bazzite-mx's, apart from the browser items of § Google Chrome, the default browser. What they
+check and do is bazzite-mx's
 [`docs/migration.md`](https://github.com/MatrixDJ96/bazzite-mx/blob/main/docs/migration.md);
 what differs on this image is [`migration.md`](migration.md).
 
-## Firefox as a Flatpak
+## Firefox out of the image
 
 bazzite-mx installs Fedora's Firefox RPM, copies Bazzite's Firefox defaults into it and denies
 the Firefox Flatpak in the base's Flatpak filter: its `40-desktop-apps.sh`, and the section
 Desktop applications of its
 [`docs/divergences.md`](https://github.com/MatrixDJ96/bazzite-mx/blob/main/docs/divergences.md).
-This image goes back to Bazzite's choice, the Flatpak `org.mozilla.firefox`, the first entry of
-Bazzite's default list `/usr/share/ublue-os/bazzite/flatpak/install`.
+This image drops Firefox: Chrome is its browser (§ Google Chrome, the default browser), and
+Firefox stays one `flatpak install` away, as Bazzite's Flatpak `org.mozilla.firefox`.
 
 `40-firefox-flatpak.sh` removes `firefox` and `firefox-langpacks` and the directory the copied
 defaults leave behind, `/usr/lib64/firefox`, and drops the line `deny org.mozilla.firefox/*`
 from `/usr/share/ublue-os/flatpak-blocklist`, the filter `bazzite-flatpak-manager` sets on
-Flathub. It also rewrites the two places bazzite-mx's helpers treat the RPM as the browser:
-`verify-host`'s `check_flatpaks`, which reported a Firefox Flatpak beside the RPM as a leftover,
-now reports the Flatpak as the browser and its absence as an `INFO:` line; `migrate`'s step 8
-no longer prints the copy of a Flatpak profile into the RPM's. Each edit first requires its
-anchor exactly once.
+Flathub. Each edit first requires its anchor exactly once.
+
+## Google Chrome, the default browser
+
+Chrome is a system RPM, `google-chrome-stable` from Google's own repository, present for every
+user and set as the default web browser. The repository is vendored as
+`system_files/etc/yum.repos.d/google-chrome.repo`, the stanza the RPM's `%post` writes
+(https://www.google.com/linuxrepositories/) with `enabled=0` and the key read from
+`/etc/pki/rpm-gpg/RPM-GPG-KEY-google-chrome`, whose fingerprint `lib/gpg.sh` pins as read from
+`dl.google.com/linux/linux_signing_key.pub`.
+
+The RPM keeps itself updated on a mutable system: its `%post` adds the repository and its daily
+cron re-enables it. On an image dnf never updates the package, so `41-chrome.sh` writes
+`/etc/default/google-chrome` with `repo_add_once=false` and `repo_reenable_on_distupgrade=false`
+before the install, the two knobs the `%post` and the cron read, removes
+`/etc/cron.daily/google-chrome` and puts the vendored repository file back after the `%post`.
+Chrome moves with the image's releases.
+
+The payload unpacks under `/opt/google`, which a host's `/var` holds: the script moves it to
+`/usr/lib/opt/google` and `/usr/lib/tmpfiles.d/bazzite-63-opt.conf` links `/var/opt/google`
+back at boot, so the paths baked into the wrapper resolve. `/etc/xdg/mimeapps.list` names
+`google-chrome.desktop` for `http`, `https`, `text/html` and `application/xhtml+xml` in the
+base's `[Default Applications]` group, whose other entries stay; a user's own
+`~/.config/mimeapps.list` still wins (XDG MIME Applications Associations specification).
+
+Chrome's Flatpak, `com.google.Chrome`, is denied in the base's Flatpak filter, the way
+bazzite-mx denies Firefox's beside its RPM: `bazzite-flatpak-manager` points Flathub's filter
+at `/usr/share/ublue-os/flatpak-blocklist` with `flatpak remote-modify --filter` when its
+version or the image name changes, as the rebase onto this image does
+(flatpak-remote-modify(1)); a host that already has the Flatpak keeps it. `41-chrome.sh` also
+turns bazzite-mx's helpers from Firefox to Chrome: `verify-host`'s `check_flatpaks` reports a
+Chrome Flatpak beside the RPM as an `INFO:` line with the profile copy, and `migrate`'s step 8
+prints that copy, from `~/.var/app/com.google.Chrome/config/google-chrome` to
+`~/.config/google-chrome`, while the Flatpak is installed; `verify-host`'s help in
+`95-bazzite-mx.just` names the Chrome Flatpak. Each edit first requires its anchor exactly
+once.
