@@ -1,0 +1,69 @@
+#!/usr/bin/bash
+# Build a Windows-style bottom panel on every non-primary screen, once per
+# user: same widget set as the default panel (Kickoff, pager, icontasks,
+# separator, clock, show-desktop), with the task manager filtered to its own
+# screen (showOnlyCurrentScreen). The system tray stays on the primary panel
+# only: adding a second systemtray applet spawns a whole duplicate tray
+# containment. Panels are created live through plasmashell's scripting API
+# (Plasma 6: panel.screen is writable), so this runs from /etc/xdg/autostart
+# inside the Plasma session.
+#
+# Adapts to N screens (loop over screenCount, primary is always screen 0).
+# The stamp is written only after a multi-screen run, so a single-screen
+# first login keeps retrying until the extra screens are there; after that,
+# per-user panel changes win and are never overridden. A screen added later
+# gets its panel by removing the stamp file (the per-screen guard makes
+# re-runs add only what is missing).
+set -euo pipefail
+
+STAMP="${XDG_CONFIG_HOME:-$HOME/.config}/bazzite63-multiscreen-panels.done"
+[ -e "$STAMP" ] && exit 0
+
+# plasmashell may still be registering on the session bus at autostart time.
+# No stamp on the not-up path: the next login retries.
+up=""
+for _ in $(seq 1 60); do
+    if gdbus introspect --session --dest org.kde.plasmashell \
+        --object-path /PlasmaShell >/dev/null 2>&1; then
+        up=1
+        break
+    fi
+    sleep 1
+done
+[ -n "$up" ] || exit 0
+
+out=$(gdbus call --session --dest org.kde.plasmashell --object-path /PlasmaShell \
+    --method org.kde.PlasmaShell.evaluateScript '
+    for (var s = 1; s < screenCount; s++) {
+        var taken = false;
+        for (const existing of panels()) {
+            if (existing.screen === s && existing.location === "bottom") {
+                taken = true;
+                break;
+            }
+        }
+        if (taken) continue;
+        var p = new Panel;
+        p.location = "bottom";
+        p.height = 46;
+        p.floating = true;
+        p.hiding = "none";
+        p.screen = s;
+        p.addWidget("org.kde.plasma.kickoff");
+        p.addWidget("org.kde.plasma.pager");
+        var tasks = p.addWidget("org.kde.plasma.icontasks");
+        p.addWidget("org.kde.plasma.marginsseparator");
+        p.addWidget("org.kde.plasma.digitalclock");
+        p.addWidget("org.kde.plasma.showdesktop");
+        tasks.currentConfigGroup = ["General"];
+        tasks.writeConfig("showOnlyCurrentScreen", true);
+    }
+    print(screenCount);')
+
+# Single screen at this login: nothing to build yet, retry next time.
+case "$out" in
+    *"('1'"*) exit 0 ;;
+esac
+
+mkdir -p "$(dirname "$STAMP")"
+touch "$STAMP"
