@@ -1,0 +1,11 @@
+<?xml version='1.0'?>
+<!DOCTYPE gui SYSTEM 'kpartgui.dtd'>
+<!-- Ctrl+C as primary Copy shortcut: Konsole disables edit_copy while no
+     text is selected, so the disabled shortcut lets ^C reach the shell as
+     the normal interrupt. version="1" keeps the app's menu layout and only
+     merges these ActionProperties. -->
+<gui name="session" version="1">
+ <ActionProperties scheme="Default">
+  <Action name="edit_copy" shortcut="Ctrl+C; Ctrl+Shift+C"/>
+ </ActionProperties>
+</gui>
