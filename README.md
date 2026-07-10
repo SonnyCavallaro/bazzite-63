@@ -94,6 +94,11 @@ Every piece of the one-shot setup is also available as its own recipe:
   the first-login hook, and `setup-dev` itself, so every account gets it.
 - **Tray clock shows seconds** — applied once per user at login through the
   plasmashell scripting API; change it afterwards and your choice sticks.
+- **A taskbar on every screen** — Windows-style: each non-primary screen gets a
+  bottom panel (launcher, pager, tasks filtered to that screen, clock), while
+  the system tray stays on the primary panel. Built once per user at login via
+  the plasmashell scripting API; your panel layout is never overridden after
+  that.
 
 ## Build & CI
 
