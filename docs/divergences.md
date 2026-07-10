@@ -7,7 +7,7 @@ every entry there holds here too unless an entry below says otherwise.
 
 Contents: layered on bazzite-mx's signed image · identity and signing · the host helpers ·
 Firefox out of the image · Google Chrome, the default browser · the
-default Flatpak set, on demand.
+default Flatpak set, on demand · Konsole opens PowerShell.
 
 ## Layered on bazzite-mx's signed image
 
@@ -124,3 +124,29 @@ take, and what they do not want they remove afterwards.
 
 `70-justfile.sh` imports this image's recipe file, `96-bazzite-63.just`, after bazzite-mx's
 recipes, and refuses a name defined twice ([`conventions.md`](conventions.md) § ujust recipes).
+
+## Konsole opens PowerShell
+
+Konsole's default profile is `Powershell.profile` (`/etc/skel/.local/share/konsole/`), named by
+the skel `konsolerc`. Its command runs `/home/linuxbrew/.linuxbrew/bin/pwsh` when it exists and
+`bash -l` otherwise: pwsh is the host's, installed into Homebrew by `brew install powershell`,
+so a host without it still opens a working terminal. profile.ps1 drops the `DOTNET_ROOT`
+Homebrew's pwsh launcher exports for its own dotnet before it activates mise, so `dotnet` and
+`mise install` in pwsh keep mise's root.
+
+pwsh reads its own profile and never `/etc/profile.d`
+(PowerShell's `about_Profiles`),
+so the skel
+`.config/powershell/profile.ps1`, which replaces bazzite-mx's in a new home, wires what bash
+gets from there: Homebrew's `bin` and `sbin` last on `PATH`, where `/etc/profile.d/brew.sh` puts
+them, and `mise activate pwsh`, the role of
+bazzite-mx's `/etc/profile.d/mise.sh` for bash. It keeps the Windows-style Ctrl+C and Ctrl+V of
+PSReadLine on `wl-copy` and `wl-paste`, which the base ships. Each block does nothing until its
+tool exists.
+
+`/etc/skel` reaches only a new home ([`gotchas.md`](gotchas.md) § A skel file reaches no account
+that already exists). bazzite-mx's login hook `12-bazzite-mx-copy-paste.sh` seeds `profile.ps1`
+into an older home that has none, and `45-konsole-profile.sh` fails the build on a base whose
+hook no longer does. This image's hook `13-bazzite-63-konsole-profile.sh` copies the Konsole
+profile when the home has none and writes `DefaultProfile` with `kwriteconfig6` only when
+`konsolerc` names no profile, so a profile the user chose stays.

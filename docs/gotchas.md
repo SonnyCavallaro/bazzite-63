@@ -7,12 +7,13 @@ when it was measured, and what the repository does about it. The rules themselve
 
 Contents, in the order of the entries: torn writeback on 6.17-azure · just duplicate recipe ·
 ujust.sh readonly names · grep -v on an empty set · command | grep -q · podman build labels ·
-stub-resolv.conf left in the image · remove-unwanted-software v9 · skopeo and
-containers-storage · workflow off the default branch · setup-oras versions · cosign verify and
-referrers · rollback onto a pruned tag · ghcr-cleanup-action patterns · pre-flight without the
-changed script · SBOM media type · FAIL branch before its verdict · 2> /dev/null on a failed
-redirection · recipe description line · cosign 3.1.3 bundle flag · arithmetic error escapes set
--e · scriptlet rewrote a .pyc · anonymous GHCR 403.
+stub-resolv.conf left in the image · remove-unwanted-software v9 ·
+skopeo and containers-storage · workflow off the default branch · setup-oras versions ·
+cosign verify and referrers · rollback onto a pruned tag · ghcr-cleanup-action patterns ·
+pre-flight without the changed script · SBOM media type · skel and existing accounts ·
+FAIL branch before its verdict · 2> /dev/null on a failed redirection ·
+recipe description line · cosign 3.1.3 bundle flag · arithmetic error escapes set -e ·
+scriptlet rewrote a .pyc · anonymous GHCR 403.
 
 ## Torn writeback on a 6.17-azure runner kernel
 
@@ -171,6 +172,17 @@ type. The document is syft's own format (`{"artifacts": […]}`, no `spdxVersion
 media type `vnd.syft+json`), so an SPDX parser does not open the file a reader pulls by
 following the type. Measured 2026-09-12 on `:stable` with `oras discover` and `oras pull`. Kept
 as upstream's shape on purpose: the diff `changelog.sh` prints reads `.artifacts[]`.
+
+## A skel file reaches no account that already exists
+
+`/etc/skel` is read once, by `useradd`, when it creates a home (useradd(8), `-k`). The Konsole
+`sessionui.rc` and the PowerShell profile shipped there since the first image were absent from
+every home of the three hosts that run it (measured 2026-09-07 on bazzite-mx, `test -f` on
+each), while the two Plasma update scripts of the same feature had run, plasmashell replaying
+them per user. bazzite-mx's user hook `12-bazzite-mx-copy-paste.sh` copies those two files at
+login when they are missing, `profile.ps1` included, which `45-konsole-profile.sh` requires;
+this image's `13-bazzite-63-konsole-profile.sh` copies the Konsole profile when missing and
+writes `DefaultProfile` into a `konsolerc` that names none.
 
 ## A FAIL branch died before its verdict
 

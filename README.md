@@ -20,6 +20,7 @@ onto a release only through the gate that verified its signature.
   denied.
 - Thunderbird, Proton Pass, DBeaver, Remmina, Parsec and Discord in Bazzite's default Flatpak
   list, installed with the rest of it on demand (`ujust install-default-flatpaks`).
+- Konsole opens PowerShell, its profile wired to Homebrew and mise, bash until pwsh exists.
 
 ## Switch a host
 

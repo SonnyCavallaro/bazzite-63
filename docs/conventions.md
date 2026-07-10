@@ -1,10 +1,10 @@
 # Conventions
 
-Rules for writing build scripts, tests, ujust recipes, CI and prose in this repo. A
+Rules for writing build scripts, tests, ujust recipes, login hooks, CI and prose in this repo. A
 rule a file enforces names that file; the rest is checked by hand at review.
 
-Contents: Bash (Form) · build scripts · ujust recipes · tests · positive control · CI · prose ·
-commits.
+Contents: Bash (Form) · build scripts · ujust recipes · login hooks · tests · positive control ·
+CI · prose · commits.
 
 ## Bash
 
@@ -336,6 +336,25 @@ known-bad still red after it. The rules above add to the earlier bullets of this
   description is the LAST comment line above it).
 - What the image already does, a package installed or a file shipped, is not redone by a
   recipe: the recipe does only what needs the host or a per-user choice.
+
+## Login hooks
+
+Scripts under `system_files/usr/share/ublue-os/user-setup.hooks.d/` run as the user at every
+graphical login through `ublue-user-setup.service`, whose dispatcher is a loop of
+`bash $script` that reads no exit status. That sets three rules:
+
+- a hook converges on every login, checking first and changing only what differs, and never
+  overwrites what the user chose; it does not stamp a version with libsetup's
+  `version-script`, which records the run before the body executes;
+- a hook that cannot do its job prints one `ERROR:` line to stderr and exits 1, because the
+  journal line is the only signal it can leave;
+- its check is cheap enough for every login, so it reads a file and never spawns the
+  application, and its fixture is `HOME` plus a stub binary first in `PATH`, so its smoke test
+  exercises the real script.
+
+A file under `/etc/skel` reaches only a home created after the image ([`gotchas.md`](gotchas.md)
+§ A skel file reaches no account that already exists): a skel file an older account needs comes
+with a hook that copies it when it is missing.
 
 ## Tests
 

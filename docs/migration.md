@@ -56,5 +56,8 @@ clean. A Bazzite host gets every step, and the `fstab` and local-RPM cautions of
       || { mkdir -p "$app/config" && cp -a ~/.config/mozilla "$app/config/"; }
   ```
 
+- A home that already holds bazzite-mx's `~/.config/powershell/profile.ps1` keeps it: nothing
+  in the image overwrites it. Copy `/etc/skel/.config/powershell/profile.ps1` over it for the
+  Homebrew and mise wiring ([`divergences.md`](divergences.md) § Konsole opens PowerShell).
 - A dated tag is one of this repository's releases, kept by its own retention
   ([`workflow.md`](workflow.md) § GHCR retention).
