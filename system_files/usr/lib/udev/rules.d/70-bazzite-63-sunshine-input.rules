@@ -1,0 +1,7 @@
+# Sunshine's virtual input devices (uinput, input id vendor beef / product
+# dead — e.g. "Mouse passthrough (absolute)") expose absolute axes, so
+# udev's input_id builtin tags them ID_INPUT_JOYSTICK and a ghost js0
+# appears: gamepad-aware apps (Parsec, SDL games) grab it and go haywire on
+# its full-scale axes. They are keyboard/mouse devices: drop the joystick
+# class. Runs after 60-*: input_id has already set the tag by then.
+SUBSYSTEM=="input", ATTRS{id/vendor}=="beef", ATTRS{id/product}=="dead", ENV{ID_INPUT_JOYSTICK}=""
