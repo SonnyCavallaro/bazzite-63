@@ -398,6 +398,16 @@ if grep -qE '^setup-sunshine[ :]' /usr/share/ublue-os/just/82-bazzite-sunshine.j
     echo "FAIL: setup-sunshine still present in upstream 82-bazzite-sunshine.just (reconcile removal failed)"
     exit 1
 fi
+
+# Sunshine's virtual input devices must not be tagged as joysticks (ghost
+# js0 breaks Parsec and gamepad-aware apps): the udev rule drops the class.
+SUNSHINE_UDEV=/usr/lib/udev/rules.d/70-bazzite-63-sunshine-input.rules
+if [ ! -f "$SUNSHINE_UDEV" ]; then
+    echo "FAIL: $SUNSHINE_UDEV missing"
+    exit 1
+fi
+grep -q 'ATTRS{id/vendor}=="beef", ATTRS{id/product}=="dead", ENV{ID_INPUT_JOYSTICK}=""' "$SUNSHINE_UDEV" || {
+    echo "FAIL: $SUNSHINE_UDEV lost the joystick-untag rule"; exit 1; }
 if grep -qE '^[[:space:]]*[^#].*homebrew\.sunshine' "$OVERRIDE_JUSTFILE"; then
     echo "FAIL: $OVERRIDE_JUSTFILE contains a residual 'homebrew.sunshine' reference outside comments"
     exit 1
