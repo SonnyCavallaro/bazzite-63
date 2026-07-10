@@ -319,7 +319,7 @@ if [ ! -f "$B63_JUSTFILE" ]; then
     echo "FAIL: $B63_JUSTFILE missing"
     exit 1
 fi
-for recipe in setup-dev install-winboat install-sap-gui install-ibm-acs setup-m365-pwa b63-status bazzite-63-setup install-default-flatpaks; do
+for recipe in setup-dev install-winboat setup-winboat-office install-sap-gui install-ibm-acs setup-m365-pwa b63-status bazzite-63-setup install-default-flatpaks; do
     grep -q "^${recipe}" "$B63_JUSTFILE" || {
         echo "FAIL: ${recipe} recipe not found in $B63_JUSTFILE"
         exit 1
@@ -677,6 +677,18 @@ if [ "$flatpak_refs_installed" -ne "$flatpak_refs_expected" ]; then
     echo "FAIL: flatpak-manager ran $flatpak_refs_installed/$flatpak_refs_expected installs (stdin swallowed by flatpak install?)"
     exit 1
 fi
+
+# --- bazzite-63: vendored winboat-office-kit (ujust install-winboat /
+# --- setup-winboat-office run it; everything else is per-user at runtime) ---
+WOK_DIR=/usr/share/bazzite-63/winboat-office-kit
+for f in setup-all.sh 01-install-winboat.sh 02-install-office-vm.sh 03-create-taskbar-launchers.sh; do
+    [ -x "$WOK_DIR/$f" ] || { echo "FAIL: $WOK_DIR/$f missing or not executable"; exit 1; }
+done
+[ -f "$WOK_DIR/README.md" ] || { echo "FAIL: $WOK_DIR/README.md missing"; exit 1; }
+# Teams icon: the WinBoat Guest API (<=0.9) does not enumerate the MSTeams
+# MSIX package, so the kit ships the icon and hardcodes the launch shell:
+# coordinates — without the png the Teams launcher would have no icon.
+[ -s "$WOK_DIR/resources/teams.png" ] || { echo "FAIL: $WOK_DIR/resources/teams.png missing or empty"; exit 1; }
 
 # --- bazzite-63: Google Chrome baked as system RPM (vendored repo, enabled=0) ---
 CHROME_REPO=/etc/yum.repos.d/google-chrome.repo
