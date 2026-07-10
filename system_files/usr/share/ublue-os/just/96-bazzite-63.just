@@ -53,29 +53,32 @@ setup-dev:
     "$MISE" install
     echo "Done. Open a new shell to activate the runtimes (node/python/java/dotnet)."
 
-# Install WinBoat (run Windows apps in a container). Beta; per-user AppImage.
-# Requires Docker/Podman + KVM (present in the image) and FreeRDP 3.x.
+# Install WinBoat (run Windows apps in a container; beta) — phase 1 of the
+# vendored winboat-office-kit: prerequisites check + per-user AppImage.
+# When the Windows VM does not exist yet the kit prints the manual wizard
+# steps and stops (exit 2) — tolerated here so the one-shot umbrella
+# carries on; after the wizard, `ujust setup-winboat-office` completes the
+# Office provisioning.
 [group("apps")]
 install-winboat:
     #!/usr/bin/env bash
     set -eo pipefail
-    echo "Installing WinBoat (beta) AppImage into ~/.local/bin..."
-    echo "Requires Docker/Podman + KVM (present) and FreeRDP 3.x."
-    mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications"
-    url=$(curl -fsSL https://api.github.com/repos/TibixDev/winboat/releases/latest \
-        | jq -r '.assets[] | select(.name | endswith(".AppImage")) | .browser_download_url' | head -1)
-    [ -n "$url" ] || { echo "Could not resolve the WinBoat AppImage URL."; exit 1; }
-    curl -fsSL "$url" -o "$HOME/.local/bin/WinBoat.AppImage"
-    chmod +x "$HOME/.local/bin/WinBoat.AppImage"
-    cat > "$HOME/.local/share/applications/winboat.desktop" <<EOF
-    [Desktop Entry]
-    Name=WinBoat
-    Exec=$HOME/.local/bin/WinBoat.AppImage
-    Type=Application
-    Categories=Utility;
-    Terminal=false
-    EOF
-    echo "WinBoat installed."
+    /usr/share/bazzite-63/winboat-office-kit/01-install-winboat.sh || {
+        rc=$?
+        [ "$rc" -eq 2 ] || exit "$rc"
+    }
+
+# Provision WinBoat + Office 365 + Teams end to end (vendored
+# winboat-office-kit): WinBoat AppImage, winget installs inside the Windows
+# VM, taskbar launchers with the original icons. Idempotent; stops with
+# instructions when a manual step is due (WinBoat first-run wizard;
+# Microsoft 365 login stays manual at first app start). Needs an active
+# desktop session (opens temporary RemoteApp windows).
+[group("apps")]
+setup-winboat-office:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    exec /usr/share/bazzite-63/winboat-office-kit/setup-all.sh
 
 # Install SAP GUI for Java from an installer you provide (needs an SAP S-user).
 [group("apps")]
