@@ -378,19 +378,28 @@ for ext in "${VSCODE_EXTENSIONS[@]}"; do
 done
 
 # --- Phase 12: Sunshine reintegration (build-time RPM, opt-in user service) ---
-rpm -q Sunshine >/dev/null || {
-    echo "FAIL: Sunshine rpm missing (65-sunshine.sh broken? COPR offline?)"
+# The pvermeer/sunshine community COPR ships the rpm as lowercase `sunshine`
+# with %caps(cap_sys_admin,cap_sys_nice+p) on the binary and a spec-guaranteed
+# `sunshine.service` alias for the LizardByte-named user unit.
+rpm -q sunshine >/dev/null || {
+    echo "FAIL: sunshine rpm missing (65-sunshine.sh broken? COPR offline?)"
     exit 1
 }
 SUNSHINE_BIN=$(readlink -f /usr/bin/sunshine)
 SUNSHINE_CAPS=$(getcap "$SUNSHINE_BIN" 2>/dev/null || true)
-case "$SUNSHINE_CAPS" in
-    *cap_sys_admin*) ;;
-    *)
-        echo "FAIL: $SUNSHINE_BIN missing cap_sys_admin (getcap output: '$SUNSHINE_CAPS')"
-        exit 1
-        ;;
-esac
+for cap in cap_sys_admin cap_sys_nice; do
+    case "$SUNSHINE_CAPS" in
+        *"$cap"*) ;;
+        *)
+            echo "FAIL: $SUNSHINE_BIN missing $cap (getcap output: '$SUNSHINE_CAPS')"
+            exit 1
+            ;;
+    esac
+done
+[ -e /usr/lib/systemd/user/sunshine.service ] || {
+    echo "FAIL: sunshine.service alias missing (pvermeer spec guarantees it)"
+    exit 1
+}
 SUNSHINE_UNIT=app-dev.lizardbyte.app.Sunshine.service
 sun_state=$(systemctl --global is-enabled "$SUNSHINE_UNIT" 2>/dev/null || true)
 if [ -z "$sun_state" ]; then

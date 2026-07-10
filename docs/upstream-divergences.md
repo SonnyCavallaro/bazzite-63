@@ -323,33 +323,39 @@ Homebrew phase (commit `aa6ec9da`) and is flatpak-flavored since commit `e05b27f
 (2026-05-22): `flatpak install --system -y dev.lizardbyte.app.Sunshine`, with brew
 surviving only in the Deck-oriented `enable-beta` path.
 
-**Us**: `build_files/mx/65-sunshine.sh` installs Sunshine as a system RPM via
-`lizardbyte/stable` — the same COPR Aurora uses, carrying current Fedora 44 builds. Three
-pieces:
+**Us**: `build_files/mx/65-sunshine.sh` installs Sunshine as a system RPM via the community
+`pvermeer/sunshine` COPR — the "Layer from Community COPR" method recommended by
+[docs.bazzite.gg/Advanced/sunshine](https://docs.bazzite.gg/Advanced/sunshine/). The COPR
+(spec: [PVermeer/copr_sunshine](https://github.com/PVermeer/copr_sunshine)) is maintained
+explicitly for Fedora, tested on Fedora and Bazzite, and carries a package for every major
+Fedora release — the docs' comparison table flags the official `lizardbyte/stable` COPR as
+"inconsistent builds for Fedora releases" that can block system updates. Two pieces:
 
-1. `copr_install_isolated "lizardbyte/stable" "sunshine"` — the same isolated-COPR pattern
-   used for `ublue-os-libvirt-workarounds`.
-2. `setcap cap_sys_admin+p` on `/usr/bin/sunshine` for KMS-based capture — the COPR package
-   ships without the cap; without it Sunshine falls back to a slower PipeWire portal path.
-3. `systemctl --global disable app-dev.lizardbyte.app.Sunshine.service` — defense-in-depth
-   (Aurora pattern); the user service is `disabled` by default (no preset ships), opt-in via
-   `ujust setup-sunshine enable`.
+1. `copr_install_isolated "pvermeer/sunshine" "sunshine"` — the same isolated-COPR pattern
+   used for `ublue-os-libvirt-workarounds`. The rpm name is lowercase `sunshine`, and the
+   package itself ships `%caps(cap_sys_admin,cap_sys_nice+p)` on `/usr/bin/sunshine`, so
+   KMS-based capture works with no build-time `setcap` step (a cap the lizardbyte packages
+   omit; without it Sunshine falls back to a slower PipeWire portal path).
+2. `systemctl --global disable app-dev.lizardbyte.app.Sunshine.service` — defense-in-depth
+   (Aurora pattern) against a preset enabling the unit: the package's `%systemd_user_post`
+   honours presets and its drop-in adds gnome-session/xdg-desktop-autostart `[Install]`
+   targets; opt-in via `ujust setup-sunshine enable`.
 
 Recipe override (`setup-sunshine` in
 `system_files/usr/share/ublue-os/just/96-bazzite-mx-overrides.just`, with the upstream copy
 surgically removed from `82-bazzite-sunshine.just` by
 `build_files/mx/55-justfile-reconcile.sh`): our RPM-flavoured recipe manages
-`app-dev.lizardbyte.app.Sunshine.service` (the COPR-shipped user unit, alias
-`sunshine.service`) via `systemctl --user enable --now`, in place of Bazzite's
-flatpak-flavoured recipe. Announcement suppression: the
+`app-dev.lizardbyte.app.Sunshine.service` (the COPR-shipped user unit, with the
+spec-guaranteed alias `sunshine.service`) via `systemctl --user enable --now`, in place of
+Bazzite's flatpak-flavoured recipe. Announcement suppression: the
 build `rm`s `/usr/share/ublue-os/announcements/sunshine-brew.msg.json` — its "Sunshine will
 soon be removed" message is permanently misleading with RPM integration.
 
 **Why it matters**: the flatpak cannot carry `cap_sys_admin`, so it streams through the
 slower PipeWire portal path instead of KMS capture; installed next to our build-time RPM it
 would also duplicate the app. For this use case the RPM is already there, captures via KMS
-thanks to the setcap, updates with the image via `bootc upgrade`, and works on a fresh
-deployment without any user setup.
+thanks to the file caps the package ships, updates with the image via `bootc upgrade`, and
+works on a fresh deployment without any user setup.
 
 ## 17. Rechunker enabled by default (vs. Bazzite-DX/AmyOS template-commented-out)
 

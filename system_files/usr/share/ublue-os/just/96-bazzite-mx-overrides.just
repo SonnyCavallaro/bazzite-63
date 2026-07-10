@@ -203,15 +203,16 @@ setup-virtualization ACTION="":
 
 # setup-sunshine — bazzite-mx OVERRIDE of Bazzite's upstream Sunshine recipe.
 #
-# bazzite-mx ships Sunshine as a system RPM (build_files/mx/65-sunshine.sh)
-# with the user unit `app-dev.lizardbyte.app.Sunshine.service` (alias
-# `sunshine.service`). Upstream's recipe (flatpak-flavored since commit
-# e05b27f8, brew kept for the Deck-oriented `enable-beta` path) manages
-# the dev.lizardbyte.app.Sunshine flatpak: on bazzite-mx its `enable`
+# bazzite-mx ships Sunshine as a system RPM (build_files/mx/65-sunshine.sh,
+# community pvermeer/sunshine COPR) with the user unit
+# `app-dev.lizardbyte.app.Sunshine.service` (alias `sunshine.service`).
+# Upstream's recipe (flatpak-flavored since commit e05b27f8, brew kept for
+# the Deck-oriented `enable-beta` path) manages the
+# dev.lizardbyte.app.Sunshine flatpak: on bazzite-mx its `enable`
 # would install a flatpak duplicating the RPM. This recipe drops the
 # flatpak/brew/Cellar handling, `enable-beta`, `update`, and `uninstall`
 # (Sunshine is part of the base image; removal is `rpm-ostree override
-# remove Sunshine`, noted in `help`), keeping `status`, `enable`,
+# remove sunshine`, noted in `help`), keeping `status`, `enable`,
 # `disable`, `portal`, `help`.
 
 # Setup and configure Sunshine Game Streaming host. Options: status | enable | disable | portal | help
@@ -242,9 +243,9 @@ setup-sunshine ACTION="":
       echo "  Use 'exit' to exit without making changes"
       echo ""
       echo "${b}Notes${n}:"
-      echo "  - Sunshine is shipped at build time as a system RPM (lizardbyte/stable COPR)."
+      echo "  - Sunshine is shipped at build time as a system RPM (community pvermeer/sunshine COPR)."
       echo "    Updates flow automatically with ${b}bootc upgrade${n} / ${b}ujust update${n}."
-      echo "  - To remove Sunshine entirely: ${b}rpm-ostree override remove Sunshine${n}, then reboot."
+      echo "  - To remove Sunshine entirely: ${b}rpm-ostree override remove sunshine${n}, then reboot."
       echo "  - Default service state on a fresh image: ${b}disabled${n} (Aurora pattern)."
       echo "  - Port forwarding for streaming over the internet: 47984 (HTTPS), 47989 (HTTP),"
       echo "    47998-48000/UDP (video/audio/control), 48010 (RTSP)."
