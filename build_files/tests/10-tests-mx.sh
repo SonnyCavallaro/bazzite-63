@@ -600,6 +600,31 @@ fi
 grep -qxF "Exec=$CLOCK_SCRIPT" "$CLOCK_AUTOSTART" || {
     echo "FAIL: $CLOCK_AUTOSTART Exec does not point at $CLOCK_SCRIPT"; exit 1; }
 
+# --- bazzite-63: multi-screen panels one-shot autostart (a taskbar on every
+# --- screen, tray on primary only, per-screen task filter on secondaries) ---
+MSP_SCRIPT=/usr/libexec/bazzite63-multiscreen-panels
+MSP_AUTOSTART=/etc/xdg/autostart/bazzite63-multiscreen-panels.desktop
+if [ ! -x "$MSP_SCRIPT" ]; then
+    echo "FAIL: $MSP_SCRIPT missing or not executable"
+    exit 1
+fi
+grep -q 'evaluateScript' "$MSP_SCRIPT" || {
+    echo "FAIL: $MSP_SCRIPT lost the plasmashell scripting call"; exit 1; }
+grep -q 'screenCount' "$MSP_SCRIPT" || {
+    echo "FAIL: $MSP_SCRIPT no longer loops over screenCount (N screens, not hardcoded)"; exit 1; }
+grep -q 'showOnlyCurrentScreen' "$MSP_SCRIPT" || {
+    echo "FAIL: $MSP_SCRIPT no longer sets the per-screen task filter"; exit 1; }
+if grep -q 'org.kde.plasma.systemtray' "$MSP_SCRIPT"; then
+    echo "FAIL: $MSP_SCRIPT adds a systemtray applet (duplicates the whole tray containment)"
+    exit 1
+fi
+if [ ! -f "$MSP_AUTOSTART" ]; then
+    echo "FAIL: $MSP_AUTOSTART missing"
+    exit 1
+fi
+grep -qxF "Exec=$MSP_SCRIPT" "$MSP_AUTOSTART" || {
+    echo "FAIL: $MSP_AUTOSTART Exec does not point at $MSP_SCRIPT"; exit 1; }
+
 # --- bazzite-63: GUI apps in the Flatpak default-install list ---
 FLATPAK_INSTALL_LIST=/usr/share/ublue-os/bazzite/flatpak/install
 for app in org.mozilla.thunderbird me.proton.Pass \

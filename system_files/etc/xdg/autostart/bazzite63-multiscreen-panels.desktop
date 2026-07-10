@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=bazzite-63 multi-screen panels default
+Comment=One-shot per-user default: a taskbar panel on every screen, tray on primary
+Exec=/usr/libexec/bazzite63-multiscreen-panels
+OnlyShowIn=KDE;
+NoDisplay=true
+X-KDE-autostart-phase=2
