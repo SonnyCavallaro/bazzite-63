@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 # MX block 56: register the bazzite-63 justfile in Bazzite's master ujust file.
 #
-# Companion to 55-justfile-import.sh (kept verbatim from bazzite-mx): the
+# Companion to 55-justfile-reconcile.sh (kept verbatim from bazzite-mx): the
 # bazzite-63 additions live in their own 96-bazzite-63.just so upstream's
 # 95-bazzite-mx.just and its import script can be synced untouched. Idempotent
 # append at the end of the master, preserving all upstream imports.
