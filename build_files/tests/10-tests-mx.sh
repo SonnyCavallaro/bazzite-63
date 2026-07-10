@@ -543,6 +543,18 @@ grep -q 'mise activate pwsh' "$PWSH_PROFILE" || {
     echo "FAIL: skel pwsh profile lost the mise activation"; exit 1; }
 grep -q 'linuxbrew' "$PWSH_PROFILE" || {
     echo "FAIL: skel pwsh profile lost the brew PATH wiring"; exit 1; }
+# Windows-style Ctrl+C/Ctrl+V: PSReadLine handlers in the skel pwsh profile
+# (guarded by wl-clipboard presence) + Konsole edit_copy shortcut via the
+# skel kxmlgui override (version="1" merges ActionProperties only; Konsole
+# disables edit_copy with no selection, so ^C still interrupts the shell).
+grep -q 'CopyOrCancelLine' "$PWSH_PROFILE" || {
+    echo "FAIL: skel pwsh profile lost the Ctrl+C/Ctrl+V PSReadLine handlers"; exit 1; }
+KONSOLE_SESSIONUI=/etc/skel/.local/share/kxmlgui5/konsole/sessionui.rc
+[ -f "$KONSOLE_SESSIONUI" ] || { echo "FAIL: skel Konsole sessionui.rc missing"; exit 1; }
+grep -q '<Action name="edit_copy" shortcut="Ctrl+C; Ctrl+Shift+C"/>' "$KONSOLE_SESSIONUI" || {
+    echo "FAIL: skel sessionui.rc lost the edit_copy Ctrl+C shortcut"; exit 1; }
+grep -q 'version="1"' "$KONSOLE_SESSIONUI" || {
+    echo "FAIL: skel sessionui.rc version bumped (must stay 1 to merge with the app layout)"; exit 1; }
 
 # --- bazzite-63: Konsole PowerShell default profile (skel, bash fallback until setup-dev) ---
 [ -f /etc/skel/.local/share/konsole/Powershell.profile ] || {
