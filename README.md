@@ -71,7 +71,8 @@ Every piece of the one-shot setup is also available as its own recipe:
 |---|---|
 | `ujust install-default-flatpaks` | Default GUI Flatpak set: Thunderbird, Proton Pass, DBeaver Community, Remmina, Parsec, Discord — auto-updating once installed |
 | `ujust setup-dev` | `mise` + CLI tools via `brew` (PowerShell, sqlcmd), then the runtimes pinned in `~/.config/mise/config.toml`: Node LTS, Python 3.14, Temurin 21, .NET 10 |
-| `ujust install-winboat` | WinBoat AppImage (run Windows apps in a container; beta) |
+| `ujust install-winboat` | WinBoat AppImage + prerequisites check (run Windows apps in a container; beta). Points at the wizard when the Windows VM is still to be created |
+| `ujust setup-winboat-office` | Full WinBoat + Office 365 + Teams provisioning (vendored kit): winget installs inside the Windows VM, taskbar launchers with the original icons. Stops with instructions at the manual steps (first-run wizard, Microsoft 365 login) |
 | `ujust install-jetbrains-toolbox` | JetBrains Toolbox (per-user, checksum-verified) — install and update the JetBrains IDEs (Rider, …) from its UI |
 | `ujust install-sap-gui <jar>` | SAP GUI for Java, from an installer you provide |
 | `ujust install-ibm-acs <zip>` | IBM i Access Client Solutions, from an archive you provide |
@@ -92,6 +93,11 @@ Every piece of the one-shot setup is also available as its own recipe:
   profile rather than `/etc/profile.d`, so a seeded `profile.ps1` puts brew on
   the PATH and activates the `mise` runtimes inside `pwsh`. Seeded via skel,
   the first-login hook, and `setup-dev` itself, so every account gets it.
+- **Windows-style Ctrl+C / Ctrl+V in the terminal** — for new accounts, Konsole
+  copies with Ctrl+C when text is selected (no selection: ^C interrupts as
+  usual, since Konsole disables the Copy action) and pwsh gets PSReadLine
+  handlers (Ctrl+C copies the keyboard selection or cancels the line, Ctrl+V
+  pastes via wl-clipboard).
 - **Tray clock shows seconds** — applied once per user at login through the
   plasmashell scripting API; change it afterwards and your choice sticks.
 - **A taskbar on every screen** — Windows-style: each non-primary screen gets a
