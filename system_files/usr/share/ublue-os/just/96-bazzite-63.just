@@ -219,6 +219,15 @@ b63-status:
         ko "pwsh profile missing (~/.config/powershell/profile.ps1) — fix: ujust setup-dev"
     fi
 
+    # The kdeglobals default is baked in the image; the TTF itself arrives
+    # per-user at first login (the EULA forbids baking it). Presence check
+    # via command substitution, never `fc-list | grep -q` (gotcha #30).
+    if [ -n "$(fc-list 'Segoe UI Variable')" ]; then
+        ok "interface font: Segoe UI Variable installed"
+    else
+        ko "interface font missing — fix: /usr/libexec/bazzite63-segoe-ui-variable (needs network; re-login also retries)"
+    fi
+
     echo
     if [[ $fail -eq 0 ]]; then
         echo "All good."

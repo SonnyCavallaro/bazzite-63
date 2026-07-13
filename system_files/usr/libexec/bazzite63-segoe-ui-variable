@@ -1,0 +1,49 @@
+#!/usr/bin/bash
+# Install the Segoe UI Variable font for the current user, once, at login.
+# The image bakes only the kdeglobals default (62-plasma-fonts.sh): the
+# Microsoft EULA forbids redistributing the TTF, so each user downloads the
+# official https://aka.ms/SegoeUIVariable package (zip, ~3.5 MB, the single
+# variable font SegoeUI-VF.ttf at its root) into ~/.local/share/fonts.
+# Runs from /etc/xdg/autostart inside the Plasma session; the stamp makes it
+# one-shot per user. No stamp on the download-failed path: the next login
+# retries (the first boot of a fresh machine may have no network yet).
+set -euo pipefail
+
+STAMP="${XDG_CONFIG_HOME:-$HOME/.config}/bazzite63-segoe-ui-variable.done"
+[ -e "$STAMP" ] && exit 0
+
+FONT_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/fonts/segoe-ui-variable"
+
+# Presence check via command substitution, never by piping fc-list into
+# `grep -q`: grep quits at the first match and SIGPIPEs fc-list, so under
+# pipefail that guard fails exactly when the font is installed (gotcha #30).
+if [ -z "$(fc-list 'Segoe UI Variable')" ]; then
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    curl -fsSL --retry 3 --retry-delay 5 -o "$tmp/SegoeUI-VF.zip" \
+        https://aka.ms/SegoeUIVariable || exit 0
+    # Full extract + find (tolerant to package-layout changes), then only
+    # the variable font: the static instances are redundant (fontconfig
+    # serves every weight from the VF file). unzip is baked in the image;
+    # bsdtar is NOT (verified live 2026-07-13).
+    unzip -q -o "$tmp/SegoeUI-VF.zip" -d "$tmp/extract"
+    vf="$(find "$tmp/extract" -iname 'SegoeUI-VF.ttf' -print -quit)"
+    [ -n "$vf" ] || exit 0
+    mkdir -p "$FONT_DIR"
+    install -m 0644 "$vf" "$FONT_DIR/SegoeUI-VF.ttf"
+    # The EULA allows the download but forbids redistribution: keep the full
+    # text next to the installed font.
+    eula="$(find "$tmp/extract" -iname 'EULA.txt' -print -quit)"
+    [ -n "$eula" ] && install -m 0644 "$eula" "$FONT_DIR/EULA.txt"
+    fc-cache -f "$FONT_DIR" >/dev/null
+    [ -n "$(fc-list 'Segoe UI Variable')" ] || exit 0
+fi
+
+# Plasma read kdeglobals before the font existed (fallback to Noto Sans):
+# broadcast KGlobalSettings FontChanged (first arg 1) so every running app
+# re-resolves its fonts and the session shows Segoe without a re-login.
+dbus-send --session --type=signal /KGlobalSettings \
+    org.kde.KGlobalSettings.notifyChange int32:1 int32:0 2>/dev/null || true
+
+mkdir -p "$(dirname "$STAMP")"
+touch "$STAMP"
