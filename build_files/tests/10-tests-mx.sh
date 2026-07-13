@@ -647,6 +647,45 @@ fi
 grep -qxF "Exec=$MSP_SCRIPT" "$MSP_AUTOSTART" || {
     echo "FAIL: $MSP_AUTOSTART Exec does not point at $MSP_SCRIPT"; exit 1; }
 
+# --- bazzite-63: Segoe UI Variable interface font (kdeglobals default baked
+# --- at build time, TTF downloaded per user at first login — the Microsoft
+# --- EULA forbids redistributing the font) ---
+for key in font menuFont toolBarFont smallestReadableFont; do
+    grep -q "^$key=Segoe UI Variable," /etc/xdg/kdeglobals || {
+        echo "FAIL: /etc/xdg/kdeglobals lost the $key default"; exit 1; }
+done
+grep -q '^activeFont=Segoe UI Variable,' /etc/xdg/kdeglobals || {
+    echo "FAIL: /etc/xdg/kdeglobals lost the WM activeFont default"; exit 1; }
+# EULA invariant: no Segoe TTF may ship in the image (capture, not
+# `find | grep -q` — SIGPIPE under pipefail, gotcha #30).
+SEGOE_BAKED="$(find /usr/share/fonts /etc/skel -iname '*segoe*' 2>/dev/null || true)"
+if [ -n "$SEGOE_BAKED" ]; then
+    echo "FAIL: Segoe font files baked into the image (EULA forbids redistribution): $SEGOE_BAKED"
+    exit 1
+fi
+SEGOE_SCRIPT=/usr/libexec/bazzite63-segoe-ui-variable
+SEGOE_AUTOSTART=/etc/xdg/autostart/bazzite63-segoe-ui-variable.desktop
+if [ ! -x "$SEGOE_SCRIPT" ]; then
+    echo "FAIL: $SEGOE_SCRIPT missing or not executable"
+    exit 1
+fi
+grep -q 'aka.ms/SegoeUIVariable' "$SEGOE_SCRIPT" || {
+    echo "FAIL: $SEGOE_SCRIPT no longer downloads from the official Microsoft link"; exit 1; }
+grep -q 'notifyChange' "$SEGOE_SCRIPT" || {
+    echo "FAIL: $SEGOE_SCRIPT lost the FontChanged D-Bus broadcast (first session would keep the fallback font)"; exit 1; }
+grep -q 'EULA.txt' "$SEGOE_SCRIPT" || {
+    echo "FAIL: $SEGOE_SCRIPT no longer keeps the EULA next to the installed font"; exit 1; }
+if grep -q 'fc-list.*|[^|].*grep' "$SEGOE_SCRIPT"; then
+    echo "FAIL: $SEGOE_SCRIPT guards the font via fc-list | grep (SIGPIPE under pipefail — gotcha #30)"
+    exit 1
+fi
+if [ ! -f "$SEGOE_AUTOSTART" ]; then
+    echo "FAIL: $SEGOE_AUTOSTART missing"
+    exit 1
+fi
+grep -qxF "Exec=$SEGOE_SCRIPT" "$SEGOE_AUTOSTART" || {
+    echo "FAIL: $SEGOE_AUTOSTART Exec does not point at $SEGOE_SCRIPT"; exit 1; }
+
 # --- bazzite-63: GUI apps in the Flatpak default-install list ---
 FLATPAK_INSTALL_LIST=/usr/share/ublue-os/bazzite/flatpak/install
 for app in org.mozilla.thunderbird me.proton.Pass \
