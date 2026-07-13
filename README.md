@@ -98,6 +98,14 @@ Every piece of the one-shot setup is also available as its own recipe:
   usual, since Konsole disables the Copy action) and pwsh gets PSReadLine
   handlers (Ctrl+C copies the keyboard selection or cancels the line, Ctrl+V
   pastes via wl-clipboard).
+- **Segoe UI Variable as the interface font** — Plasma's general, menu,
+  toolbar and window-title fonts default to Windows 11's system font. Only the
+  configuration is baked (the Microsoft EULA forbids redistributing the font):
+  at first login each user's session downloads the official
+  [Microsoft package](https://aka.ms/SegoeUIVariable) into
+  `~/.local/share/fonts/segoe-ui-variable/` (EULA text alongside) and running
+  apps pick it up live, no re-login needed. Your own font choice in System
+  Settings always wins.
 - **Tray clock shows seconds** — applied once per user at login through the
   plasmashell scripting API; change it afterwards and your choice sticks.
 - **A taskbar on every screen** — Windows-style: each non-primary screen gets a
@@ -105,6 +113,15 @@ Every piece of the one-shot setup is also available as its own recipe:
   the system tray stays on the primary panel. Built once per user at login via
   the plasmashell scripting API; your panel layout is never overridden after
   that.
+- **A second NTFS driver, for the dual-boot half of the machine** — Linux 7.1
+  merged NTFSPLUS, a from-scratch in-kernel NTFS read/write driver with a real
+  fsck, but the Bazzite kernel builds it off. The image compiles it as an
+  out-of-tree module and drops the generic `mount.ntfs` helper that hands every
+  `ntfs` mount to the FUSE ntfs-3g, so asking for the type `ntfs` reaches the
+  kernel driver — from `/etc/fstab`, from a systemd `.mount` unit, from
+  `mount -t auto`, and from udisks when you plug a disk in. `ntfs3` keeps
+  serving `ntfs3` entries and `mount -t ntfs-3g` still reaches FUSE, so either
+  older driver is one mount type away.
 
 ## Build & CI
 
