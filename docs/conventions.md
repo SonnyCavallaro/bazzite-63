@@ -320,6 +320,10 @@ known-bad still red after it. The rules above add to the earlier bullets of this
   earlier import wins on a duplicate recipe name), so `70-justfile.sh` fails the build on any
   name defined in two files and checks that the master justfile exposes every name of ours and
   still parses.
+- A recipe of the base this image replaces goes in the `OVERRIDES` list of `70-justfile.sh`,
+  which cuts it out of the base file, proves the file still parses and lost that name alone, and
+  proves our file defines the name. `setup-dev` is the one entry, and keeps the base recipe's
+  inline shape instead of a helper.
 - A recipe that needs more than a few lines of logic calls a helper under
   `system_files/usr/libexec/bazzite-63-<x>`, the recipe staying a thin front: the `help` text,
   the not-as-root check, `sudo` where root is needed, the call. The helper takes fixture knobs
@@ -406,6 +410,7 @@ Where each one runs:
 | `90-validate-repos.sh`                                    | the test RUN, called by its paired test                                                                                                                   |
 | `bazzite-mx-migrate`, the base's                          | the test RUN, called by `tests/12-host-helpers.sh`                                                                                                        |
 | `bazzite-63-flatpak-manager`                              | the test RUN, called by `tests/42-flatpak-apps.sh`                                                                                                        |
+| `70-justfile.sh`, `bazzite-63-setup`                      | the test RUN, called by `tests/70-justfile.sh`                                                                                                            |
 | `tests/run.sh`                                            | `lint` job, `build.yml`, after the CI scripts                                                                                                             |
 
 ## CI

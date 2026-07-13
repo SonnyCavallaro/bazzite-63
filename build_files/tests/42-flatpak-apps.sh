@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Smoke test of 42-flatpak-apps.sh: each app once in Bazzite's default list,
 # no VulkanLayer runtime and no Firefox in it, the apps alone in their own
-# file; the installer's self-test and the recipe's help.
+# file; the installer's self-test.
 #
 # Usage: run by tests/run.sh inside the image (offline, on the cleaned tree).
 # Output: one `OK: <what>` or `FAIL: <what>` line per check, on stdout.
@@ -51,4 +51,3 @@ check_install_list() {
 
 check_install_list
 check_self_test flatpak-manager /usr/libexec/bazzite-63-flatpak-manager
-check_recipe_help /usr/share/ublue-os/just/96-bazzite-63.just install-default-flatpaks

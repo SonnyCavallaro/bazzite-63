@@ -6,11 +6,16 @@
 # Usage: run by build.sh as the first script; no arguments.
 # Writes: $BUILD_TMP/dnf.conf.base, restored by 95-clean-stage.sh;
 #   $BUILD_STATE/repos.base.sha256 and repos.base.enabled, read by
-#   90-validate-repos.sh.
+#   90-validate-repos.sh; the SHA-256 of the base's skel profile.ps1 in
+#   /usr/share/bazzite-63/bazzite-mx-profile.sha256, read by setup-b63 and
+#   setup-dev.
 # Exit status: 0 done; the build stops on a `FAIL: …` line.
 
 # shellcheck source=lib/env.sh
 source "$(dirname "$(realpath "$0")")/lib/env.sh"
+
+BASE_PWSH_PROFILE=/etc/skel/.config/powershell/profile.ps1
+MX_PROFILE_SUM=/usr/share/bazzite-63/bazzite-mx-profile.sha256
 
 # --- the steps ----------------------------------------------------------------
 
@@ -47,8 +52,22 @@ record_base_enabled_repos() {
     log "prep: enabled in the base: $(paste -sd ' ' "$snapshot")"
 }
 
+# Before 01-system-files.sh puts this image's profile.ps1 over bazzite-mx's: a
+# home whose copy still matches gets this image's from setup-dev install.
+record_base_pwsh_profile() {
+    local sum
+
+    if ! sum=$(sha256sum < "$BASE_PWSH_PROFILE"); then
+        fail_build "$BASE_PWSH_PROFILE missing from the base"
+    fi
+
+    mkdir -p "$(dirname "$MX_PROFILE_SUM")"
+    echo "${sum%% *}" > "$MX_PROFILE_SUM"
+}
+
 # --- main ---------------------------------------------------------------------
 
 keep_dnf_cache
 record_base_repo_files
 record_base_enabled_repos
+record_base_pwsh_profile

@@ -8,7 +8,8 @@ every entry there holds here too unless an entry below says otherwise.
 Contents: layered on bazzite-mx's signed image · identity and signing · the host helpers ·
 Firefox out of the image · Google Chrome, the default browser · the
 default Flatpak set, on demand · Konsole opens PowerShell ·
-Segoe UI Variable.
+Segoe UI Variable · the user half of a host ·
+setup-dev · SAP GUI, IBM i Access and Microsoft 365.
 
 ## Layered on bazzite-mx's signed image
 
@@ -130,7 +131,7 @@ recipes, and refuses a name defined twice ([`conventions.md`](conventions.md) §
 
 Konsole's default profile is `Powershell.profile` (`/etc/skel/.local/share/konsole/`), named by
 the skel `konsolerc`. Its command runs `/home/linuxbrew/.linuxbrew/bin/pwsh` when it exists and
-`bash -l` otherwise: pwsh is the host's, installed into Homebrew by `brew install powershell`,
+`bash -l` otherwise: pwsh is the host's, installed into Homebrew by `ujust setup-dev install`,
 so a host without it still opens a working terminal. profile.ps1 drops the `DOTNET_ROOT`
 Homebrew's pwsh launcher exports for its own dotnet before it activates mise, so `dotnet` and
 `mise install` in pwsh keep mise's root.
@@ -168,3 +169,56 @@ item `/etc/xdg/autostart/bazzite-63-segoe-ui-variable.desktop` runs
 `fc-cache` and sends KGlobalSettings' font change, so the running apps switch without a new
 login. A run that could not install the font leaves no stamp and the next login retries; the
 stamp `~/.config/bazzite-63-segoe-ui-variable.done` ends the retries.
+
+## The user half of a host
+
+bazzite-mx's `ujust migrate` and `ujust verify-host` cover the system half
+([`docs/migration.md`](https://github.com/MatrixDJ96/bazzite-mx/blob/main/docs/migration.md)):
+the origin, the signing trust, the layered packages. What each user still has to do on this
+image is the user half. `ujust setup-b63` gives it the same shape, through
+`/usr/libexec/bazzite-63-setup`, not as root; without an action a menu asks, `status` first, as
+`setup-dev` does:
+
+- `ujust setup-b63 status` prints one `OK:`, `FAIL:` or `INFO:` line per check of the user
+  half, in `verify-host`'s shape, each `FAIL:` naming its fix, and exits 1 on any `FAIL:`;
+- `ujust setup-b63 plan` is read-only and prints the steps `apply` would run;
+- `ujust setup-b63 apply` runs them in order, each asked first with `ugum confirm`:
+  `ujust install-default-flatpaks` while none of the image's own apps is installed,
+  `ujust setup-dev install` while the mise config, pwsh or its profile is missing or the
+  profile is bazzite-mx's untouched one,
+  `ujust install-jetbrains-toolbox install` (bazzite-mx's recipe) while Toolbox is absent,
+  `ujust install-m365-pwa` while the launcher is absent; then it names what stays with the
+  user, the SAP and IBM installers. A step declined stops the run with the steps before it
+  standing, and a second `apply` skips what is done.
+
+Both `plan` and `apply` refuse a host whose booted origin is not
+`ostree-image-signed:docker://ghcr.io/sonnycavallaro/bazzite-63:` and point at `ujust migrate`:
+nothing here moves a host. The browser and the Konsole profile are `INFO:` lines when they
+differ, the user's choice winning over the image's default, and so is a Flatpak of the default
+list the user removed: `apply` does not put it back.
+
+## setup-dev
+
+bazzite-mx's `ujust setup-dev` seeds `~/.config/mise/config.toml` from `/etc/skel` and runs
+`mise install`. This image's recipe replaces it: `70-justfile.sh` cuts bazzite-mx's out of
+`95-bazzite-mx.just` (the earlier import would win otherwise, [`gotchas.md`](gotchas.md) §
+`just`: the earlier import wins on a duplicate recipe name), proving the file still parses and
+lost that recipe name alone. `setup-dev install` seeds the mise config and the PowerShell
+profile when the home has none, replacing a `profile.ps1` that is bazzite-mx's untouched (its
+SHA-256, which `00-prep.sh` reads from the base before this image's skel copy replaces it, in
+`/usr/share/bazzite-63/bazzite-mx-profile.sha256`), installs `powershell` and
+`sqlcmd` from Homebrew (a formula that fails leaves the runtimes to install) and runs
+`mise install`; `status` adds pwsh to the mise listing.
+
+## SAP GUI, IBM i Access and Microsoft 365
+
+Three recipes for applications whose installers the image cannot ship:
+
+- `ujust install-sap-gui <PlatinGUI-Linux-….jar>` runs SAP GUI for Java's installer, which an
+  SAP S-user downloads from the SAP Software Download Center, with the Java of
+  `ujust setup-dev install`, bazzite-mx's mise default `temurin-21`;
+- `ujust install-ibm-acs <IBMiAccess_v1r1.zip>` unpacks IBM i Access Client Solutions from
+  https://www.ibm.com/support/pages/ibm-i-access-client-solutions into
+  `~/.local/share/ibm-acs`, started with `java -jar` on its `acsbundle.jar`;
+- `ujust install-m365-pwa` writes `~/.local/share/applications/m365.desktop`, which opens
+  https://www.office.com as an app window of the system Chrome; removing the file removes it.

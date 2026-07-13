@@ -60,7 +60,7 @@ Each script owns one artefact and ships a `--self-test`.
 | `lib/repos.sh`          | `install_from_repo`, `enabled_repos`                                                                                                         |
 | `lib/just.sh`           | `recipe_set`; output captured before any grep                                                                                                 |
 | `lib/gpg.sh`            | the `KEY_FPR` table of this image's vendor keys, `key_fingerprint` and `assert_key_fingerprint`                                              |
-| `00-prep.sh`            | dnf keeps its cache and waits 60 s against COPR and mirror flakes; the base's repositories are recorded                                      |
+| `00-prep.sh`            | dnf keeps its cache and waits 60 s for COPR and mirrors; the base's repositories and the SHA-256 of its skel `profile.ps1` recorded          |
 | `01-system-files.sh`    | `rsync` of `system_files/` over the tree, every file on a fresh inode                                                                        |
 | `10-image-info.sh`      | identity: `image-info.json`, os-release, the KDE About page                                                                                  |
 | `11-image-signing.sh`   | the public key and the `policy.json` scope for `ghcr.io/sonnycavallaro`, next to the base's                                                  |
@@ -70,7 +70,7 @@ Each script owns one artefact and ships a `--self-test`.
 | `42-flatpak-apps.sh`    | this image's apps appended to Bazzite's default Flatpak list, each once, its VulkanLayer runtimes and Firefox dropped                        |
 | `45-konsole-profile.sh` | asserts the base still seeds the skel `profile.ps1` into older homes; the files come from `system_files/`                                  |
 | `47-segoe-font.sh`      | Segoe UI Variable in the five font keys of `/etc/xdg/kdeglobals`                                                                             |
-| `70-justfile.sh`        | `96-bazzite-63.just` imported after bazzite-mx's recipes: format check, no name twice, every recipe exposed                                  |
+| `70-justfile.sh`        | the base's `setup-dev` cut out of its file; `96-bazzite-63.just` imported after bazzite-mx's recipes: format check, no name twice, every recipe exposed |
 | `90-validate-repos.sh`  | the repository gate, run after the last install                                                                                              |
 | `95-clean-stage.sh`     | the tree bootc lint and the rechunk expect                                                                                                   |
 | `tests/run.sh`          | the test runner and the pairing guard                                                                                                        |

@@ -1,0 +1,568 @@
+#!/usr/bin/env bash
+# The user half of a bazzite-63 host, after `ujust migrate` has done the
+# system half: the default Flatpak set, the development environment, JetBrains
+# Toolbox and the Microsoft 365 launcher, in the shape of migrate (a read-only
+# plan, then an apply that asks before each step), and the status of that
+# half, one line per check in the shape of verify-host. The helper behind
+# `ujust setup-b63`.
+#
+# Usage: bazzite-63-setup status          one OK/FAIL/INFO line per check
+#        bazzite-63-setup plan            read-only: what apply would do
+#        bazzite-63-setup apply           do it, asking before each step
+#        bazzite-63-setup --self-test     status, plan and apply on fixture homes
+#   Not as root: every step is per user, and the ones that need root sudo
+#   inside their own recipe. The self-test's fixture: INSTALL_LIST=<file>,
+#   IMAGE_APPS=<file>, MX_PROFILE_SUM=<file>, BREW_PREFIX=<dir>,
+#   ASK_WITHOUT_TERMINAL=1 (ugum asked with no terminal) and the commands
+#   found first on PATH (flatpak, rpm-ostree, xdg-mime, fc-list, ugum, ujust).
+# Output: status prints `OK:`, `FAIL:` and `INFO:` lines, each FAIL naming its
+#   fix, then `setup-b63: every check passed` or `setup-b63: FAIL lines
+#   above`; plan prints the steps and `plan: ready` or `plan: nothing to do`.
+# Exit status: 0 done, or every status check passed; 1 a FAIL line, a step that
+#   failed or a bad argument, `ERROR: …` on stderr; 2 the host does not run
+#   bazzite-63 from its signed origin or a step was not confirmed, `ABORT: …`
+#   on stderr.
+set -euo pipefail
+
+INSTALL_LIST=${INSTALL_LIST:-/usr/share/ublue-os/bazzite/flatpak/install}
+IMAGE_APPS=${IMAGE_APPS:-/usr/share/bazzite-63/flatpak-apps}
+# The SHA-256 of bazzite-mx's skel profile.ps1, which has no Homebrew or mise.
+MX_PROFILE_SUM=${MX_PROFILE_SUM:-/usr/share/bazzite-63/bazzite-mx-profile.sha256}
+SIGNED_ORIGIN=ostree-image-signed:docker://ghcr.io/sonnycavallaro/bazzite-63:
+MISE_CONFIG=${XDG_CONFIG_HOME:-$HOME/.config}/mise/config.toml
+BREW_PREFIX=${BREW_PREFIX:-/home/linuxbrew/.linuxbrew}
+PWSH=$BREW_PREFIX/bin/pwsh
+PWSH_PROFILE=${XDG_CONFIG_HOME:-$HOME/.config}/powershell/profile.ps1
+KONSOLERC=${XDG_CONFIG_HOME:-$HOME/.config}/konsolerc
+TOOLBOX_DIR=${XDG_DATA_HOME:-$HOME/.local/share}/JetBrains/ToolboxApp
+M365_LAUNCHER=${XDG_DATA_HOME:-$HOME/.local/share}/applications/m365.desktop
+
+# Set by the first FAIL line of status.
+ANY_CHECK_FAILED=0
+
+# --- reading the home ---------------------------------------------------------
+
+abort() {
+    echo "ABORT: $*" >&2
+    exit 2
+}
+
+# The refs of the default list no installation carries, one per line.
+missing_flatpaks() {
+    local installed ref
+
+    installed=$(flatpak list --columns=application 2> /dev/null || true)
+
+    while read -r ref; do
+        if ! grep -qxF "$ref" <<< "$installed"; then
+            echo "$ref"
+        fi
+    done < <(grep -vE '^[[:space:]]*(#|$)' "$INSTALL_LIST" || true)
+}
+
+# Whether one of the image's own apps is installed: the default set was taken,
+# and what the user removed since stays removed.
+image_app_installed() {
+    local installed
+
+    installed=$(flatpak list --columns=application 2> /dev/null || true)
+    grep -qxFf "$IMAGE_APPS" <<< "$installed"
+}
+
+# bazzite-mx's current profile.ps1 alone: an older copy counts as edited.
+profile_is_bazzite_mx() {
+    local sum expected
+
+    sum=$(sha256sum "$PWSH_PROFILE" 2> /dev/null || true)
+    expected=$(cat "$MX_PROFILE_SUM" 2> /dev/null || true)
+    [ -n "$sum" ] && [ "${sum%% *}" = "$expected" ]
+}
+
+dev_environment_ready() {
+    [ -f "$MISE_CONFIG" ] && [ -x "$PWSH" ] && [ -f "$PWSH_PROFILE" ] \
+        && ! profile_is_bazzite_mx
+}
+
+# The booted deployment's origin, empty when rpm-ostree cannot say.
+booted_origin() {
+    rpm-ostree status --json 2> /dev/null \
+        | jq -r '.deployments[] | select(.booted) | ."container-image-reference" // empty' \
+        || true
+}
+
+# migrate puts the host on the signed origin; nothing here does that.
+require_signed_origin() {
+    local origin
+
+    origin=$(booted_origin)
+
+    if [[ $origin != "$SIGNED_ORIGIN"* ]]; then
+        abort "the host runs ${origin:-an unknown origin}, not bazzite-63 from its signed" \
+            "origin: ujust migrate plan, then ujust migrate apply and a reboot, first"
+    fi
+}
+
+# --- status -------------------------------------------------------------------
+
+report_ok() {
+    echo "OK: $*"
+}
+
+report_fail() {
+    echo "FAIL: $*"
+    ANY_CHECK_FAILED=1
+}
+
+report_info() {
+    echo "INFO: $*"
+}
+
+check_flatpaks() {
+    local missing
+
+    missing=$(missing_flatpaks)
+
+    if [ -z "$missing" ]; then
+        report_ok "every Flatpak of the default list is installed"
+    else
+        report_info "Flatpaks of the default list not installed:" \
+            "$(paste -sd ' ' <<< "$missing") (ujust install-default-flatpaks)"
+    fi
+}
+
+check_browser() {
+    local browser
+
+    browser=$(xdg-mime query default x-scheme-handler/https 2> /dev/null || true)
+
+    if [ "$browser" = google-chrome.desktop ]; then
+        report_ok "the web opens in Chrome"
+    else
+        report_info "the web opens in ${browser:-nothing}, not Chrome: your choice in" \
+            "System Settings, Default Applications, wins over the image's"
+    fi
+}
+
+check_dev_environment() {
+    if [ -f "$MISE_CONFIG" ]; then
+        report_ok "mise config $MISE_CONFIG"
+    else
+        report_fail "no $MISE_CONFIG (ujust setup-dev install)"
+    fi
+
+    if [ -x "$PWSH" ]; then
+        report_ok "pwsh from Homebrew"
+    else
+        report_fail "no pwsh at $PWSH (ujust setup-dev install)"
+    fi
+
+    if [ ! -f "$PWSH_PROFILE" ]; then
+        report_fail "no $PWSH_PROFILE (ujust setup-dev install)"
+    elif profile_is_bazzite_mx; then
+        report_fail "$PWSH_PROFILE is bazzite-mx's, without Homebrew and mise" \
+            "(ujust setup-dev install replaces it)"
+    else
+        report_ok "PowerShell profile $PWSH_PROFILE"
+    fi
+}
+
+check_desktop() {
+    local font profile
+
+    font=$(fc-list 'Segoe UI Variable' 2> /dev/null || true)
+    profile=$(sed -n 's/^DefaultProfile=//p' "$KONSOLERC" 2> /dev/null || true)
+
+    if [ -n "$font" ]; then
+        report_ok "Segoe UI Variable installed"
+    else
+        report_fail "Segoe UI Variable not installed (rm -f" \
+            "$HOME/.config/bazzite-63-segoe-ui-variable.done, then" \
+            "/usr/libexec/bazzite-63-segoe-ui-variable with the network up)"
+    fi
+
+    if [ "$profile" = Powershell.profile ]; then
+        report_ok "Konsole opens PowerShell"
+    else
+        report_info "Konsole opens ${profile:-its built-in profile}: your choice wins"
+    fi
+}
+
+check_optional_apps() {
+    if [ -d "$TOOLBOX_DIR" ]; then
+        report_ok "JetBrains Toolbox installed"
+    else
+        report_info "JetBrains Toolbox not installed (ujust install-jetbrains-toolbox)"
+    fi
+
+    if [ -f "$M365_LAUNCHER" ]; then
+        report_ok "Microsoft 365 launcher"
+    else
+        report_info "no Microsoft 365 launcher (ujust install-m365-pwa)"
+    fi
+}
+
+cmd_status() {
+    check_flatpaks
+    check_browser
+    check_dev_environment
+    check_desktop
+    check_optional_apps
+
+    if [ "$ANY_CHECK_FAILED" -ne 0 ]; then
+        echo "setup-b63: FAIL lines above"
+        exit 1
+    fi
+
+    echo "setup-b63: every check passed"
+}
+
+# --- plan and apply -----------------------------------------------------------
+
+# One `<n> <recipe…>|<what>` line per step still to do, in order.
+pending_steps() {
+    if ! image_app_installed; then
+        echo "1 install-default-flatpaks|the default Flatpak set, from Flathub"
+    fi
+
+    if ! dev_environment_ready; then
+        echo "2 setup-dev install|mise runtimes, pwsh and sqlcmd from Homebrew, the pwsh profile"
+    fi
+
+    if [ ! -d "$TOOLBOX_DIR" ]; then
+        echo "3 install-jetbrains-toolbox install|JetBrains Toolbox, for the JetBrains IDEs"
+    fi
+
+    if [ ! -f "$M365_LAUNCHER" ]; then
+        echo "4 install-m365-pwa|the Microsoft 365 launcher, a Chrome web app"
+    fi
+}
+
+print_what_is_left() {
+    echo "step 5: what stays with the user"
+    echo "  - SAP GUI and IBM i Access need files you download yourself:"
+    echo "      ujust install-sap-gui <PlatinGUI-Linux-….jar>"
+    echo "      ujust install-ibm-acs <IBMiAccess_v1r1.zip>"
+    echo "  - ujust setup-b63 status checks your setup, ujust verify-host the system"
+}
+
+cmd_plan() {
+    local steps
+
+    require_signed_origin
+    steps=$(pending_steps)
+
+    echo "bazzite-63 setup: plan for $HOME"
+    echo
+
+    if [ -z "$steps" ]; then
+        echo "plan: nothing to do, steps 1 to 4 are done"
+        return 0
+    fi
+
+    echo "steps apply would run, each asked first:"
+    sed 's/^\([0-9]\) [^|]*|/  \1. /' <<< "$steps"
+    echo "  5. print what is left"
+    echo "plan: ready"
+}
+
+# confirm <question>: without a terminal nothing is confirmed.
+confirm() {
+    local question=$1
+
+    if [ ! -t 0 ] && [ -z "${ASK_WITHOUT_TERMINAL:-}" ]; then
+        echo "no terminal: '$question' not confirmed" >&2
+        return 1
+    fi
+
+    if ugum confirm "$question"; then
+        echo "  $question yes"
+        return 0
+    fi
+
+    echo "  $question no"
+    return 1
+}
+
+cmd_apply() {
+    local number recipe what
+    local -a recipe_args
+
+    require_signed_origin
+
+    # The steps come in on descriptor 3, so confirm and ugum read the user's
+    # stdin and not the list.
+    while IFS='|' read -r -u 3 recipe what; do
+        number=${recipe%% *}
+        read -r -a recipe_args <<< "${recipe#* }"
+
+        echo "step $number: $what"
+
+        if ! confirm "Run ujust ${recipe_args[*]}?"; then
+            abort "step $number not confirmed; the steps before it stand: run apply again"
+        fi
+
+        if ! ujust "${recipe_args[@]}" < /dev/null; then
+            echo "ERROR: step $number, ujust ${recipe_args[*]}, failed: run it again to" \
+                "retry, then apply for the steps left" >&2
+            exit 1
+        fi
+    done 3< <(pending_steps)
+
+    echo
+    print_what_is_left
+}
+
+# --- self-test ----------------------------------------------------------------
+
+# Stubs on PATH: flatpak lists STUB_FLATPAKS, rpm-ostree boots STUB_ORIGIN,
+# xdg-mime answers Chrome, fc-list knows the font unless STUB_NO_FONT is set,
+# ugum logs the answer it reads on stdin and confirms a y, ujust logs and fails
+# on STUB_UJUST_FAIL.
+self_test_write_stubs() {
+    local bin=$1/bin
+
+    mkdir -p "$bin"
+    printf '#!/usr/bin/env bash\nprintf "%%s\\n" $STUB_FLATPAKS\n' > "$bin/flatpak"
+    printf '%s\n' '#!/usr/bin/env bash' \
+        "printf '{\"deployments\":[{\"booted\":true,\"container-image-reference\":\"%s\"}]}' \\" \
+        '    "$STUB_ORIGIN"' > "$bin/rpm-ostree"
+    printf '#!/usr/bin/env bash\necho google-chrome.desktop\n' > "$bin/xdg-mime"
+    printf '%s\n' '#!/usr/bin/env bash' \
+        '[ -n "${STUB_NO_FONT:-}" ] || echo "/f.ttf: Segoe UI Variable"' > "$bin/fc-list"
+    printf '%s\n' '#!/usr/bin/env bash' 'read -r answer' 'echo "$answer" >> "$STUB_UGUM_LOG"' \
+        '[ "$answer" = y ]' > "$bin/ugum"
+    printf '%s\n' '#!/usr/bin/env bash' 'echo "$*" >> "$STUB_UJUST_LOG"' \
+        '[ "$1" != "${STUB_UJUST_FAIL:-}" ]' > "$bin/ujust"
+    chmod +x "$bin"/*
+}
+
+# A finished home: the dev environment, Toolbox, the launcher, konsolerc.
+self_test_finish_home() {
+    local home=$1
+
+    mkdir -p "$home/.config/mise" "$home/.config/powershell" \
+        "$home/.local/share/JetBrains/ToolboxApp" "$home/.local/share/applications"
+    : > "$home/.config/mise/config.toml"
+    : > "$home/.config/powershell/profile.ps1"
+    : > "$home/.local/share/applications/m365.desktop"
+    printf '[Desktop Entry]\nDefaultProfile=Powershell.profile\n' > "$home/.config/konsolerc"
+}
+
+self_test_fail() {
+    echo "self-test: $*"
+    exit 1
+}
+
+# run_in <home> <command>: the helper itself on a fixture home, its stubs
+# first on PATH; only the finished home's BREW_PREFIX holds a stand-in pwsh.
+run_in() {
+    env -u XDG_CONFIG_HOME -u XDG_DATA_HOME HOME="$1" PATH="$SELF_TEST_DIR/bin:$PATH" \
+        INSTALL_LIST="$SELF_TEST_DIR/list" IMAGE_APPS="$SELF_TEST_DIR/apps" \
+        MX_PROFILE_SUM="$SELF_TEST_DIR/mx-profile.sha256" \
+        STUB_UJUST_LOG="$SELF_TEST_DIR/ujust.log" \
+        STUB_UGUM_LOG="$SELF_TEST_DIR/ugum.log" \
+        BREW_PREFIX="$SELF_TEST_DIR/brew-${1##*/}" bash "$SELF_TEST_SCRIPT" "$2"
+}
+
+self_test_status() {
+    local output expected
+
+    if ! output=$(STUB_FLATPAKS="$DONE_FLATPAKS" run_in "$1/done" status); then
+        self_test_fail "status failed on a finished home: $output"
+    fi
+
+    for expected in 'OK: the web opens in Chrome' 'OK: Konsole opens PowerShell' \
+        'OK: JetBrains Toolbox installed' 'OK: Microsoft 365 launcher' \
+        'OK: every Flatpak of the default list is installed'; do
+        if ! grep -qxF "$expected" <<< "$output"; then
+            self_test_fail "status on a finished home lacks '$expected': $output"
+        fi
+    done
+
+    expected='INFO: Flatpaks of the default list not installed: me.proton.Pass'
+    expected+=' (ujust install-default-flatpaks)'
+
+    if ! output=$(STUB_FLATPAKS="${DONE_FLATPAKS/ me.proton.Pass/}" run_in "$1/done" status) \
+        || ! grep -qxF "$expected" <<< "$output"; then
+        self_test_fail "a removed Flatpak was not an INFO line: $output"
+    fi
+
+    if output=$(STUB_FLATPAKS="$DONE_FLATPAKS" run_in "$1/mx" status) \
+        || ! grep -q "^FAIL: .* is bazzite-mx's, without Homebrew and mise" <<< "$output"; then
+        self_test_fail "bazzite-mx's profile.ps1 was not a FAIL line: $output"
+    fi
+
+    if output=$(STUB_NO_FONT=1 STUB_FLATPAKS="$DONE_FLATPAKS" run_in "$1/empty" status); then
+        self_test_fail "status passed an empty home: $output"
+    fi
+
+    for expected in '^FAIL: no .*/mise/config.toml ' '^FAIL: no pwsh at ' \
+        '^FAIL: no .*/profile.ps1 ' '^FAIL: Segoe UI Variable not installed '; do
+        if ! grep -q "$expected" <<< "$output"; then
+            self_test_fail "status on an empty home lacks '$expected': $output"
+        fi
+    done
+}
+
+self_test_plan() {
+    local output steps home
+
+    if output=$(STUB_ORIGIN="$UNSIGNED_ORIGIN" \
+        run_in "$1/new" plan 2>&1) || ! grep -q '^ABORT: .*ujust migrate plan' <<< "$output"; then
+        self_test_fail "plan did not refuse an unsigned origin: $output"
+    fi
+
+    output=$(STUB_FLATPAKS=org.mozilla.firefox run_in "$1/new" plan)
+    steps=$(grep -E '^  [0-9]\. ' <<< "$output" | cut -c3-4 | paste -sd ' ' || true)
+
+    if [ "$steps" != "1. 2. 3. 4. 5." ] || ! grep -qx 'plan: ready' <<< "$output"; then
+        self_test_fail "plan on a new home listed '$steps': $output"
+    fi
+
+    output=$(STUB_FLATPAKS="${DONE_FLATPAKS/ me.proton.Pass/}" run_in "$1/done" plan)
+
+    if ! grep -q '^plan: nothing to do' <<< "$output"; then
+        self_test_fail "plan on a finished home, one app removed: $output"
+    fi
+
+    output=$(STUB_FLATPAKS="$DONE_FLATPAKS" run_in "$1/mx" plan)
+    steps=$(grep -E '^  [0-9]\. ' <<< "$output" | cut -c3-4 | paste -sd ' ' || true)
+
+    if [ "$steps" != "2. 5." ]; then
+        self_test_fail "plan on a home with bazzite-mx's profile.ps1 listed '$steps'"
+    fi
+
+    for home in nomise noprofile; do
+        output=$(STUB_FLATPAKS="$DONE_FLATPAKS" run_in "$1/$home" plan)
+
+        if ! grep -q '^  2\. ' <<< "$output"; then
+            self_test_fail "plan on a home with pwsh, the $home one, lacks step 2: $output"
+        fi
+    done
+}
+
+# apply runs the pending recipes in order, each confirmed by an answer read on
+# the caller's stdin; without a terminal it confirms nothing and runs none.
+self_test_apply() {
+    local output expected
+
+    : > "$SELF_TEST_DIR/ujust.log"
+
+    if output=$(STUB_FLATPAKS=org.mozilla.firefox run_in "$1/new" apply 2>&1 < /dev/null) \
+        || [ -s "$SELF_TEST_DIR/ujust.log" ] || ! grep -q '^ABORT: step 1 not confirmed' \
+        <<< "$output"; then
+        self_test_fail "apply without a terminal ran or did not abort: $output"
+    fi
+
+    if output=$(STUB_ORIGIN="$UNSIGNED_ORIGIN" ASK_WITHOUT_TERMINAL=1 \
+        run_in "$1/new" apply 2>&1 <<< $'y\ny\ny\ny') || [ -s "$SELF_TEST_DIR/ujust.log" ] \
+        || ! grep -q '^ABORT: .*ujust migrate plan' <<< "$output"; then
+        self_test_fail "apply did not refuse an unsigned origin: $output"
+    fi
+
+    expected='install-default-flatpaks,setup-dev install,install-jetbrains-toolbox install'
+    expected+=',install-m365-pwa'
+
+    if ! output=$(STUB_FLATPAKS=org.mozilla.firefox ASK_WITHOUT_TERMINAL=1 \
+        run_in "$1/new" apply 2>&1 <<< $'y\ny\ny\ny'); then
+        self_test_fail "apply with every step confirmed failed: $output"
+    fi
+
+    if [ "$(paste -sd ',' "$SELF_TEST_DIR/ujust.log")" != "$expected" ] \
+        || [ "$(paste -sd ',' "$SELF_TEST_DIR/ugum.log")" != y,y,y,y ]; then
+        self_test_fail "apply ran: $(paste -sd ',' "$SELF_TEST_DIR/ujust.log")," \
+            "ugum read: $(paste -sd ',' "$SELF_TEST_DIR/ugum.log")"
+    fi
+
+    : > "$SELF_TEST_DIR/ujust.log"
+
+    if output=$(STUB_UJUST_FAIL=setup-dev STUB_FLATPAKS=org.mozilla.firefox \
+        ASK_WITHOUT_TERMINAL=1 run_in "$1/new" apply 2>&1 <<< $'y\ny\ny\ny') \
+        || [ "$(paste -sd ',' "$SELF_TEST_DIR/ujust.log")" \
+            != 'install-default-flatpaks,setup-dev install' ]; then
+        self_test_fail "apply went on after a failed step: $output"
+    fi
+
+    : > "$SELF_TEST_DIR/ujust.log"
+
+    if output=$(STUB_FLATPAKS=org.mozilla.firefox ASK_WITHOUT_TERMINAL=1 \
+        run_in "$1/new" apply 2>&1 <<< $'y\nn') \
+        || [ "$(paste -sd ',' "$SELF_TEST_DIR/ujust.log")" != install-default-flatpaks ] \
+        || ! grep -q '^ABORT: step 2 not confirmed' <<< "$output"; then
+        self_test_fail "apply ran a step answered no: $output"
+    fi
+}
+
+self_test() {
+    SELF_TEST_DIR=$(mktemp -d)
+    SELF_TEST_SCRIPT=$(realpath "$0")
+    # shellcheck disable=SC2064  # expand now: the global may change
+    trap "rm -rf '$SELF_TEST_DIR'" EXIT
+    export SELF_TEST_DIR SELF_TEST_SCRIPT
+    export STUB_ORIGIN=ostree-image-signed:docker://ghcr.io/sonnycavallaro/bazzite-63:stable
+    # The first rebase's origin, before ujust migrate switches to the signed one.
+    UNSIGNED_ORIGIN=ostree-unverified-registry:ghcr.io/sonnycavallaro/bazzite-63:stable
+    DONE_FLATPAKS="org.mozilla.firefox me.proton.Pass com.discordapp.Discord"
+
+    self_test_write_stubs "$SELF_TEST_DIR"
+    printf '%s\n' org.mozilla.firefox me.proton.Pass com.discordapp.Discord \
+        > "$SELF_TEST_DIR/list"
+    printf '%s\n' me.proton.Pass com.discordapp.Discord > "$SELF_TEST_DIR/apps"
+    # A new account holds the skel mise config and profile.ps1, not pwsh.
+    mkdir -p "$SELF_TEST_DIR/new/.config/mise" "$SELF_TEST_DIR/new/.config/powershell" \
+        "$SELF_TEST_DIR/brew-done/bin"
+    : > "$SELF_TEST_DIR/new/.config/mise/config.toml"
+    : > "$SELF_TEST_DIR/new/.config/powershell/profile.ps1"
+    ln -s /bin/true "$SELF_TEST_DIR/brew-done/bin/pwsh"
+    self_test_finish_home "$SELF_TEST_DIR/done"
+    # A home migrated from bazzite-mx: finished, its profile.ps1 bazzite-mx's.
+    self_test_finish_home "$SELF_TEST_DIR/mx"
+    mkdir -p "$SELF_TEST_DIR/brew-mx/bin"
+    ln -s /bin/true "$SELF_TEST_DIR/brew-mx/bin/pwsh"
+    echo 'bazzite-mx' > "$SELF_TEST_DIR/mx/.config/powershell/profile.ps1"
+    sha256sum < "$SELF_TEST_DIR/mx/.config/powershell/profile.ps1" | cut -d' ' -f1 \
+        > "$SELF_TEST_DIR/mx-profile.sha256"
+    # Finished homes missing one file: pwsh is shared, /home/linuxbrew.
+    for home in nomise noprofile; do
+        self_test_finish_home "$SELF_TEST_DIR/$home"
+        mkdir -p "$SELF_TEST_DIR/brew-$home/bin"
+        ln -s /bin/true "$SELF_TEST_DIR/brew-$home/bin/pwsh"
+    done
+    rm "$SELF_TEST_DIR/nomise/.config/mise/config.toml"
+    rm "$SELF_TEST_DIR/noprofile/.config/powershell/profile.ps1"
+
+    self_test_status "$SELF_TEST_DIR"
+    self_test_plan "$SELF_TEST_DIR"
+    self_test_apply "$SELF_TEST_DIR"
+
+    echo "self-test ok: status passes a finished home, fails an empty one on its mise" \
+        "config, pwsh, profile.ps1 and font, a" \
+        "removed Flatpak an INFO line" \
+        "and bazzite-mx's profile.ps1 a FAIL line, plan refuses an unsigned origin," \
+        "lists the 4 steps a new home needs, none for a removed app, only setup-dev" \
+        "for bazzite-mx's profile.ps1 and setup-dev for a home with pwsh but no mise" \
+        "config or profile.ps1," \
+        "apply refuses an unsigned origin, confirms nothing without a terminal and runs" \
+        "the 4 recipes on one, stopping at a step that fails or one answered no"
+}
+
+# --- main ---------------------------------------------------------------------
+
+case "${1:-}" in
+    status)
+        cmd_status
+        ;;
+    plan)
+        cmd_plan
+        ;;
+    apply)
+        cmd_apply
+        ;;
+    --self-test)
+        self_test
+        ;;
+    *)
+        echo "ERROR: usage: bazzite-63-setup status | plan | apply | --self-test" >&2
+        exit 1
+        ;;
+esac

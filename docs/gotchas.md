@@ -36,7 +36,8 @@ a fresh-inode helper. A runner whose kernel is a 6.17-azure brings the defect ba
 With `set allow-duplicate-recipes` and the same recipe name in two imported files, just keeps
 the recipe of the file imported first (just manual, "Imports"; measured 2026-09-02 with two
 files on just 1.57.0). An import appended after the base's files can never override a base
-recipe, so `70-justfile.sh` fails the build on any name defined twice.
+recipe, so `70-justfile.sh` cuts a base recipe this image replaces out of its file (`OVERRIDES`)
+and fails the build on any other name defined twice.
 
 ## `ujust.sh` declares its colour and formatting names readonly
 

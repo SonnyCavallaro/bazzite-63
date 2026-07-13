@@ -22,6 +22,11 @@ onto a release only through the gate that verified its signature.
   list, installed with the rest of it on demand (`ujust install-default-flatpaks`).
 - Konsole opens PowerShell, its profile wired to Homebrew and mise, bash until pwsh exists.
 - Segoe UI Variable as Plasma's interface font, downloaded into each home at its first login.
+- The user half of a host, `ujust setup-b63 status|plan|apply`, in the shape of `migrate`, and
+  `ujust setup-dev` installing pwsh and sqlcmd from Homebrew next to bazzite-mx's mise
+  runtimes.
+- SAP GUI for Java, IBM i Access Client Solutions and a Microsoft 365 launcher, through
+  `ujust install-sap-gui`, `install-ibm-acs` and `install-m365-pwa`.
 
 ## Switch a host
 
@@ -38,6 +43,7 @@ systemctl reboot
 ujust migrate apply
 systemctl reboot
 ujust verify-host
+ujust setup-b63 apply
 ```
 
 The steps, the checks and what an NVIDIA machine needs are in

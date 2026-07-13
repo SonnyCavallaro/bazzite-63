@@ -1,9 +1,9 @@
 # bazzite-63: the per-user PowerShell environment, copied from /etc/skel into every new home
 # (and into an older one by bazzite-mx's copy-paste hook) and read by pwsh at start. pwsh
 # reads this profile and never /etc/profile.d, so Homebrew and mise are wired here; each
-# block does nothing until pwsh is installed from Homebrew (`brew install powershell`).
+# block does nothing until `ujust setup-dev` has installed pwsh from Homebrew.
 
-# Homebrew: pwsh itself and the command-line tools installed with brew.
+# Homebrew: pwsh itself and the command-line tools setup-dev installs.
 if (Test-Path '/home/linuxbrew/.linuxbrew/bin' -PathType Container) {
     if (($env:PATH -split ':') -notcontains '/home/linuxbrew/.linuxbrew/bin') {
         # Last, as /etc/profile.d/brew.sh puts it: mise's runtimes and the system win.

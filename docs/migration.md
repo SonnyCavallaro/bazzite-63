@@ -24,7 +24,14 @@ ujust migrate                 # plan: read-only, prints what apply would do
 ujust migrate apply           # every change but step 2 asks first; TAG defaults to stable
 systemctl reboot
 ujust verify-host
+ujust setup-b63 plan          # the user half: read-only, prints what apply would do
+ujust setup-b63 apply         # each step asks first
+ujust setup-b63 status        # one line per check of the user half
 ```
+
+`setup-b63` runs as each user of the host, and its `plan` and `apply` refuse until `migrate`
+has put the host on the signed origin
+([`divergences.md`](divergences.md) § The user half of a host).
 
 A bazzite-mx host has already been through bazzite-mx's own migration, so `migrate apply` on it
 mostly rebases onto the signed transport: no layered package, `fstab` row or residue is left to
@@ -56,8 +63,9 @@ clean. A Bazzite host gets every step, and the `fstab` and local-RPM cautions of
       || { mkdir -p "$app/config" && cp -a ~/.config/mozilla "$app/config/"; }
   ```
 
-- A home that already holds bazzite-mx's `~/.config/powershell/profile.ps1` keeps it: nothing
-  in the image overwrites it. Copy `/etc/skel/.config/powershell/profile.ps1` over it for the
-  Homebrew and mise wiring ([`divergences.md`](divergences.md) § Konsole opens PowerShell).
+- A home that already holds bazzite-mx's `~/.config/powershell/profile.ps1` keeps it until
+  `ujust setup-dev install`, which replaces it while it is untouched; over an edited one, copy
+  `/etc/skel/.config/powershell/profile.ps1` by hand for the Homebrew and mise wiring
+  ([`divergences.md`](divergences.md) § Konsole opens PowerShell).
 - A dated tag is one of this repository's releases, kept by its own retention
   ([`workflow.md`](workflow.md) § GHCR retention).
