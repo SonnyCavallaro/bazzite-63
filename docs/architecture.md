@@ -27,10 +27,21 @@ The Containerfile has **4 stages**:
    context. No RUN steps; serves only as a bind-mount source for subsequent stages.
 2. **`akmods-rpms`** — FROM-scratch carrier of `/kernel-rpms` (incl. kernel-devel)
    matched to the base image's kernel; consumed only as an RPM source via
-   bind-mount (inherited verbatim from bazzite-mx).
-3. **`kmod-builder`** — compiles the out-of-tree modules (msi-ec, acpi_ec) against
-   the matched kernel-devel via `build_files/kmods/build-kmods.sh`, emitting
-   staged `.ko.xz` under `/out` (inherited verbatim from bazzite-mx).
+   bind-mount (inherited verbatim from bazzite-mx). The three coordinates of the
+   carrier tag (`akmods:<flavour>-<fedora>-<kver>`) come from
+   `.github/scripts/resolve-kernel-coords.sh`, which reads the base image's
+   `ostree.linux` label and asks the registry which akmods flavours carry that
+   exact kernel NVRA — upstream moves a flavour whose driver lags a mainline
+   kernel bump onto the LTS branch (`ogc-lts`) while its siblings ride `ogc`
+   (gotcha #38). CI and `/preflight` call that one resolver.
+3. **`kmod-builder`** — compiles the out-of-tree modules (msi-ec, acpi_ec,
+   ntfsplus) against the matched kernel-devel via
+   `build_files/kmods/build-kmods.sh`, emitting staged `.ko.xz` under `/out`
+   (inherited verbatim from bazzite-mx). Each module is one directory holding a
+   `source.env` sourced by the builder loop: `URL`, a pinned `COMMIT`,
+   `KO_NAME`, `KO_DEST`, plus the optional `KO_BUILD_PATH` (built object in a
+   subdirectory: acpi_ec) and `KO_BUILD_ARGS` (extra `make` variables for a
+   kbuild fragment gated on a kernel config symbol: ntfsplus).
 4. **Final stage** — `FROM ghcr.io/ublue-os/bazzite:${BASE_TAG}`, with three RUN
    steps executed in order:
 
@@ -75,7 +86,7 @@ bazzite-63/
 │   │                              build-mx.sh, copr-helpers.sh,
 │   │                              clean-stage.sh, validate-repos.sh)
 │   ├── mx/                      # Numbered domain scripts
-│   ├── kmods/                   # Out-of-tree kmod sources + builder (msi-ec, acpi_ec)
+│   ├── kmods/                   # Out-of-tree kmod sources + builder (msi-ec, acpi_ec, ntfsplus)
 │   └── tests/                   # 10-tests-mx.sh (smoke)
 ├── system_files/                # Rsync'd into / by build.sh
 ├── .github/workflows/
@@ -85,6 +96,10 @@ bazzite-63/
 │   ├── watch-upstream.yml
 │   ├── clean.yml
 │   └── generate-release.yml
+├── .github/scripts/             # Host-side helpers called by the workflows
+│   ├── changelog.sh             # Release-notes generator (generate-release.yml)
+│   ├── resolve-kernel-coords.sh # akmods carrier flavour/version (reusable-build.yml)
+│   └── resolve-release-tag.sh   # Downstream tag schema (build-{stable,testing}.yml)
 ├── cosign.{key,pub}             # .key gitignored
 ├── AGENTS.md                    # Canonical project guide (every agent)
 ├── CLAUDE.md                    # Claude Code bridge → @AGENTS.md
