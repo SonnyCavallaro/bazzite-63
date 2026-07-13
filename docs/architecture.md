@@ -69,6 +69,7 @@ Each script owns one artefact and ships a `--self-test`.
 | `41-chrome.sh`          | Chrome from its vendored repository, payload in `/usr/lib/opt/google`, the default browser; Flatpak denied, helpers turned to Chrome         |
 | `42-flatpak-apps.sh`    | this image's apps appended to Bazzite's default Flatpak list, each once, its VulkanLayer runtimes and Firefox dropped                        |
 | `45-konsole-profile.sh` | asserts the base still seeds the skel `profile.ps1` into older homes; the files come from `system_files/`                                  |
+| `47-segoe-font.sh`      | Segoe UI Variable in the five font keys of `/etc/xdg/kdeglobals`                                                                             |
 | `70-justfile.sh`        | `96-bazzite-63.just` imported after bazzite-mx's recipes: format check, no name twice, every recipe exposed                                  |
 | `90-validate-repos.sh`  | the repository gate, run after the last install                                                                                              |
 | `95-clean-stage.sh`     | the tree bootc lint and the rechunk expect                                                                                                   |
@@ -91,7 +92,8 @@ One tree, copied over `/` by `01-system-files.sh`.
 | `etc/pki/rpm-gpg/RPM-GPG-KEY-google-chrome`       | the key that file reads                |
 | `etc/skel/`                                       | per-user defaults: Konsole's PowerShell profile, the `konsolerc` naming it, `profile.ps1` |
 | `usr/share/ublue-os/user-setup.hooks.d/`          | the login hook that gives an older home the Konsole profile |
-| `usr/libexec/bazzite-63-*`                        | the helpers the recipes call; each takes a fixture knob for its test |
+| `etc/xdg/autostart/bazzite-63-segoe-ui-variable.desktop` | the login item that fetches the font into the home |
+| `usr/libexec/bazzite-63-*`                        | the helpers the recipes and the login item call; each takes a fixture knob for its test |
 | `usr/share/ublue-os/just/96-bazzite-63.just`      | this image's recipes                   |
 
 ## State of a build

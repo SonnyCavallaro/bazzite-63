@@ -38,8 +38,8 @@ gh workflow run build.yml --repo SonnyCavallaro/bazzite-63 --ref <branch> -f rec
   libraries; `tests/` one smoke test per script plus `run.sh`. Each file's role:
   `docs/architecture.md`.
 - `system_files/`: copied over `/`; the registry trust of `ghcr.io/sonnycavallaro`, vendored
-  `.repo` files and keys, skel files and their login hook, the ujust recipes of
-  `96-bazzite-63.just` and their `usr/libexec/bazzite-63-*` helpers.
+  `.repo` files and keys, skel files and their login hook, an autostart login item,
+  the ujust recipes of `96-bazzite-63.just` and their `usr/libexec/bazzite-63-*` helpers.
 - `.github/scripts/`: one owner per CI artefact, each with a `--self-test`.
 - `base-cosign.pub`: bazzite-mx's `cosign.pub`, the key the base is verified against;
   `cosign.pub`: this repository's, the key a host verifies the image against.

@@ -7,7 +7,8 @@ every entry there holds here too unless an entry below says otherwise.
 
 Contents: layered on bazzite-mx's signed image · identity and signing · the host helpers ·
 Firefox out of the image · Google Chrome, the default browser · the
-default Flatpak set, on demand · Konsole opens PowerShell.
+default Flatpak set, on demand · Konsole opens PowerShell ·
+Segoe UI Variable.
 
 ## Layered on bazzite-mx's signed image
 
@@ -150,3 +151,20 @@ into an older home that has none, and `45-konsole-profile.sh` fails the build on
 hook no longer does. This image's hook `13-bazzite-63-konsole-profile.sh` copies the Konsole
 profile when the home has none and writes `DefaultProfile` with `kwriteconfig6` only when
 `konsolerc` names no profile, so a profile the user chose stays.
+
+## Segoe UI Variable
+
+Plasma's general, menu, toolbar and window-title fonts are Segoe UI Variable, the Windows 11
+interface font, at 10 points, and the smallest readable font at 8: `47-segoe-font.sh` writes the
+five keys into `/etc/xdg/kdeglobals`, the system level of the KConfig cascade, so a font a user
+picks in System Settings still wins. `tests/47-segoe-font.sh` reads the five keys back in their
+groups, since `kwriteconfig6` can exit 0 without writing.
+
+Only the configuration is baked. Microsoft lets a user download the font from
+https://aka.ms/SegoeUIVariable but not redistribute it (the package's `EULA.txt`), so the login
+item `/etc/xdg/autostart/bazzite-63-segoe-ui-variable.desktop` runs
+`bazzite-63-segoe-ui-variable` in each Plasma session. It downloads the package, keeps
+`SegoeUI-VF.ttf` and the licence under `~/.local/share/fonts/segoe-ui-variable`, runs
+`fc-cache` and sends KGlobalSettings' font change, so the running apps switch without a new
+login. A run that could not install the font leaves no stamp and the next login retries; the
+stamp `~/.config/bazzite-63-segoe-ui-variable.done` ends the retries.

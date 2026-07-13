@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Segoe UI Variable font install
+Comment=One-time download of the Segoe UI Variable interface font for this user
+Exec=/usr/libexec/bazzite-63-segoe-ui-variable
+OnlyShowIn=KDE;
+NoDisplay=true
+X-KDE-autostart-phase=2

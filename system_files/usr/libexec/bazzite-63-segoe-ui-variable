@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# Installs Segoe UI Variable for the user, once, at login: the image bakes
+# only the kdeglobals keys (47-segoe-font.sh), the licence forbidding the
+# font's redistribution, so each home downloads Microsoft's package, keeps the
+# variable font and the licence text, and tells the running apps to pick it
+# up. A run that could not install it leaves no stamp, so the next login
+# retries: a fresh machine's first login may have no network yet.
+#
+# Usage: bazzite-63-segoe-ui-variable   (as the user; /etc/xdg/autostart runs it)
+#   SEGOE_URL=<url>: where the package comes from (the smoke test's file://).
+# Output: `segoe-ui-variable: …` lines, the last one saying what the run left.
+# Exit status: 0 always, a login item having nobody to report to; the stamp
+#   ~/.config/bazzite-63-segoe-ui-variable.done says it is done.
+set -euo pipefail
+
+SEGOE_URL=${SEGOE_URL:-https://aka.ms/SegoeUIVariable}
+STAMP=${XDG_CONFIG_HOME:-$HOME/.config}/bazzite-63-segoe-ui-variable.done
+FONT_DIR=${XDG_DATA_HOME:-$HOME/.local/share}/fonts/segoe-ui-variable
+WORK_DIR=$(mktemp -d)
+trap 'rm -rf "$WORK_DIR"' EXIT
+
+# --- the steps ----------------------------------------------------------------
+
+# Captured before the test: fc-list piped into `grep -q` dies of SIGPIPE on a
+# match under pipefail (docs/gotchas.md § `command | grep -q` under
+# `pipefail` fails on a match).
+font_installed() {
+    local found
+
+    found=$(fc-list 'Segoe UI Variable' 2> /dev/null || true)
+    [ -n "$found" ]
+}
+
+# Status 1 when the package cannot be fetched or holds no variable font; the
+# layout inside the zip is searched, not assumed.
+install_font() {
+    local font licence
+
+    if ! curl -fsSL --retry 3 --retry-delay 5 -o "$WORK_DIR/segoe.zip" "$SEGOE_URL"; then
+        echo "segoe-ui-variable: cannot download $SEGOE_URL; the next login retries"
+        return 1
+    fi
+
+    if ! unzip -q -o "$WORK_DIR/segoe.zip" -d "$WORK_DIR/package"; then
+        echo "segoe-ui-variable: $SEGOE_URL is not a zip; the next login retries"
+        return 1
+    fi
+
+    font=$(find "$WORK_DIR/package" -iname 'SegoeUI-VF.ttf' -print -quit)
+    licence=$(find "$WORK_DIR/package" -iname 'EULA.txt' -print -quit)
+
+    if [ -z "$font" ]; then
+        echo "segoe-ui-variable: no SegoeUI-VF.ttf in the package; the next login retries"
+        return 1
+    fi
+
+    mkdir -p "$FONT_DIR"
+    install -m 0644 "$font" "$FONT_DIR/SegoeUI-VF.ttf"
+
+    if [ -n "$licence" ]; then
+        install -m 0644 "$licence" "$FONT_DIR/EULA.txt"
+    fi
+
+    fc-cache -f "$FONT_DIR" > /dev/null
+}
+
+# Plasma resolved kdeglobals before the font existed: KGlobalSettings'
+# FontChanged makes every running app resolve its fonts again, no new login.
+announce_font_change() {
+    if ! dbus-send --session --type=signal /KGlobalSettings \
+        org.kde.KGlobalSettings.notifyChange int32:1 int32:0 2> /dev/null; then
+        echo "segoe-ui-variable: no session bus to announce it; new apps use it"
+    fi
+}
+
+# --- main ---------------------------------------------------------------------
+
+if [ -e "$STAMP" ]; then
+    exit 0
+fi
+
+if ! font_installed; then
+    if ! install_font; then
+        exit 0
+    fi
+
+    if ! font_installed; then
+        echo "segoe-ui-variable: fontconfig does not see the installed font; the next login retries"
+        exit 0
+    fi
+fi
+
+announce_font_change
+mkdir -p "$(dirname "$STAMP")"
+touch "$STAMP"
+echo "segoe-ui-variable: installed in $FONT_DIR"
