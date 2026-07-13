@@ -98,6 +98,14 @@ Every piece of the one-shot setup is also available as its own recipe:
   usual, since Konsole disables the Copy action) and pwsh gets PSReadLine
   handlers (Ctrl+C copies the keyboard selection or cancels the line, Ctrl+V
   pastes via wl-clipboard).
+- **Segoe UI Variable as the interface font** — Plasma's general, menu,
+  toolbar and window-title fonts default to Windows 11's system font. Only the
+  configuration is baked (the Microsoft EULA forbids redistributing the font):
+  at first login each user's session downloads the official
+  [Microsoft package](https://aka.ms/SegoeUIVariable) into
+  `~/.local/share/fonts/segoe-ui-variable/` (EULA text alongside) and running
+  apps pick it up live, no re-login needed. Your own font choice in System
+  Settings always wins.
 - **Tray clock shows seconds** — applied once per user at login through the
   plasmashell scripting API; change it afterwards and your choice sticks.
 - **A taskbar on every screen** — Windows-style: each non-primary screen gets a
