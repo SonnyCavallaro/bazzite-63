@@ -56,6 +56,12 @@ a read-only `/usr`; GitKraken and keyring-backed git auth; a deep tracing kit (`
 `bpftop`, `sysprof`, `iotop-c`, and more); Firefox from Mozilla's own RPM, so native messaging and
 the system keyring work out of the box; and `gparted`, restoring a GUI partition tool to the image.
 
+**A second NTFS driver, for the dual-boot half of the machine.** Linux 7.1 merged NTFSPLUS, a
+from-scratch in-kernel NTFS read/write driver with a real fsck, but the Bazzite kernel builds it
+off. Bazzite MX compiles it as an out-of-tree module, so an NTFS volume can be mounted with
+`sudo mount -i -t ntfs /dev/… /mnt` instead of ntfs3 or the FUSE ntfs-3g. Nothing changes unless you
+ask for it: `ntfs3` stays in place and every automatic mount keeps its current driver.
+
 **Extras that stay opt-in.** 1Password, Sunshine game-streaming, and full MSI-laptop EC
 control each ship as a `ujust` recipe you enable only if you want it — the base image stays lean for
 everyone who doesn't. MSI is the standout: stock Bazzite ships an in-tree driver that *rejects* recent

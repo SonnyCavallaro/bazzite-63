@@ -553,5 +553,58 @@ grep -qF 'root-fs-type = "btrfs"' "$BOOTC_INSTALL_FILE" || {
     exit 1
 }
 
+# --- Phase 20: ntfsplus out-of-tree module (build-time, loaded on demand) ---
+# Linux 7.1's in-tree NTFSPLUS driver (fs/ntfs), built out-of-tree because the ogc
+# kernel sets CONFIG_NTFS_FS off. MSI_KVER is the kernel version resolved in the
+# Phase 16 block above.
+NTFS_KO="/usr/lib/modules/${MSI_KVER}/updates/fs/ntfs/ntfs.ko.xz"
+if [ ! -f "$NTFS_KO" ]; then
+    echo "FAIL: $NTFS_KO missing (ntfsplus build/install broken?)"
+    exit 1
+fi
+ntfs_path=$(modinfo -k "$MSI_KVER" -F filename ntfs 2>/dev/null || true)
+case "$ntfs_path" in
+    */updates/*) ;;
+    *) echo "FAIL: ntfs resolves to '$ntfs_path' (expected …/updates/…)"; exit 1 ;;
+esac
+# the module must declare the fs-ntfs alias: that is what makes the kernel load it
+# on demand at `mount -i -t ntfs`, and it is also the proof the build produced the
+# NTFSPLUS driver rather than an empty object (gotcha #25 fails silently otherwise)
+ntfs_alias=$(modinfo -k "$MSI_KVER" -F alias ntfs 2>/dev/null || true)
+if [ "$ntfs_alias" != "fs-ntfs" ]; then
+    echo "FAIL: ntfs declares alias '$ntfs_alias' (expected fs-ntfs)"
+    exit 1
+fi
+# vermagic must match the image's kernel exactly, or modprobe refuses the module
+ntfs_vermagic=$(modinfo -k "$MSI_KVER" -F vermagic ntfs 2>/dev/null || true)
+case "$ntfs_vermagic" in
+    "$MSI_KVER "*) ;;
+    *) echo "FAIL: ntfs vermagic '$ntfs_vermagic' does not match kernel $MSI_KVER"; exit 1 ;;
+esac
+# same CRC32 invariant as the EC modules: the kernel XZ decompressor rejects CRC64
+if ! LC_ALL=C xz --list "$NTFS_KO" 2>/dev/null | grep -q 'CRC32'; then
+    echo "FAIL: $NTFS_KO is not CRC32-compressed (kernel cannot decompress it at modprobe)"
+    LC_ALL=C xz --list "$NTFS_KO" 2>&1 || true
+    exit 1
+fi
+# ntfsplus coexists with ntfs3, it does not replace it: existing installs mount
+# their NTFS volumes with `ntfs3` in fstab and must keep working across an upgrade
+ntfs3_path=$(modinfo -k "$MSI_KVER" -F filename ntfs3 2>/dev/null || true)
+if [ -z "$ntfs3_path" ]; then
+    echo "FAIL: in-tree ntfs3 no longer resolves (ntfsplus must coexist, not replace)"
+    exit 1
+fi
+# no autoload ships: the kernel loads a filesystem module on demand at mount time
+shopt -s nullglob
+ntfs_autoload=(
+    /usr/lib/modules-load.d/*ntfs*
+    /etc/modules-load.d/*ntfs*
+)
+shopt -u nullglob
+if [ "${#ntfs_autoload[@]}" -gt 0 ]; then
+    echo "FAIL: an ntfs modules-load.d autoload is shipped (the mount itself loads the driver)"
+    exit 1
+fi
+
 echo "MX smoke tests OK."
 echo "::endgroup::"

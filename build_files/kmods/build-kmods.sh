@@ -24,23 +24,28 @@ dnf5 -y install gcc make git xz elfutils-libelf-devel \
 [ -d "$KSRC" ] || { echo "FAIL: $KSRC missing after kernel-devel install"; exit 1; }
 
 # Modules to build (extend this list for future kmods).
-KMODS=(msi-ec acpi_ec)
+KMODS=(msi-ec acpi_ec ntfsplus)
 
 for kmod in "${KMODS[@]}"; do
-    # Clear per-module vars so an unset KO_BUILD_PATH never leaks across iterations.
-    unset URL COMMIT KO_NAME KO_DEST KO_BUILD_PATH
+    # Clear per-module vars so an unset optional one never leaks across iterations.
+    unset URL COMMIT KO_NAME KO_DEST KO_BUILD_PATH KO_BUILD_ARGS
     # shellcheck disable=SC1090
-    source "$CTX/build_files/kmods/${kmod}/source.env"   # URL, COMMIT, KO_NAME, KO_DEST[, KO_BUILD_PATH]
+    source "$CTX/build_files/kmods/${kmod}/source.env"   # URL, COMMIT, KO_NAME, KO_DEST[, KO_BUILD_PATH, KO_BUILD_ARGS]
     # Where the kbuild output .ko lands relative to the clone root. Defaults to
     # the root (msi-ec); modules whose Makefile builds in a subdir set it.
     : "${KO_BUILD_PATH:=${KO_NAME}.ko}"
+    # Extra make variables, empty for most modules. A module whose kbuild fragment
+    # is gated on a kernel config symbol (`obj-$(CONFIG_X) += foo.o`) builds NOTHING
+    # and still exits 0 when the target kernel leaves that symbol unset — ntfsplus
+    # forces CONFIG_NTFS_FS=m here (gotcha #25).
+    read -r -a ko_build_args <<< "${KO_BUILD_ARGS:-}"
     src="/tmp/build-${kmod}"
     git clone "$URL" "$src"
     git -C "$src" -c advice.detachedHead=false checkout "$COMMIT"
     # Build against the TARGET kernel, not the builder's running kernel:
     # call the kernel build system directly (the module's own `modules`
     # target hardcodes /lib/modules/$(uname -r)/build).
-    make -C "$KSRC" M="$src" modules
+    make -C "$KSRC" M="$src" "${ko_build_args[@]}" modules
     # Compress for the kernel-side XZ module decompressor, which accepts ONLY
     # CRC32 + a small dictionary. Default `xz` uses CRC64 + an 8 MiB dict, which
     # decompresses fine in userspace but makes modprobe fail with "decompression

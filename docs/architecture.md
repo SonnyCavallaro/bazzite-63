@@ -47,7 +47,7 @@ build-mx.sh
   └─ enumerate build_files/mx/[0-9]*-*.sh in version order
        (mapfile -t < <(find … | sort -V))
        │
-       └─ 17 numbered domain scripts (00-image-info.sh … 71-acpi-ec.sh)
+       └─ 18 numbered domain scripts (00-image-info.sh … 72-ntfsplus.sh)
 clean-stage.sh
   ├─ restore pristine /etc/dnf/dnf.conf (from /tmp/dnf.conf.orig)
   ├─ dnf5 versionlock clear
@@ -71,7 +71,7 @@ Each decade owns one domain; `build-mx.sh` runs the scripts in version order:
 | 40 | Dev CLI (rpms + pinned binaries) | `40-dev-cli-rpms.sh`, `41-dev-cli-pinned.sh` |
 | 50 | Bazzite extras + justfile reconcile | `50-bazzite-extras.sh`, `55-justfile-reconcile.sh` |
 | 60 | Desktop apps + repo/key provisioning for opt-in layering | `60-desktop-apps.sh`, `61-firefox-rpm.sh`, `62-firefox-flatpak-exclude.sh`, `64-1password-key.sh`, `65-sunshine.sh` |
-| 70 | Out-of-tree kmods install | `70-msi-ec.sh`, `71-acpi-ec.sh` |
+| 70 | Out-of-tree kmods install | `70-msi-ec.sh`, `71-acpi-ec.sh`, `72-ntfsplus.sh` |
 
 `55-justfile-reconcile.sh` has two responsibilities: (1) **surgical override removal** —
 for each recipe bazzite-mx replaces (`setup-sunshine`, `setup-virtualization`,
@@ -86,9 +86,17 @@ and `96-bazzite-mx-overrides.just` (the override bodies) to Bazzite's master
 
 `build_files/kmods/` is built in a dedicated `kmod-builder` Containerfile stage, NOT by
 `build-mx.sh` (whose `[0-9]*-*.sh` glob only runs `build_files/mx/`). It compiles
-out-of-tree kernel modules (`msi-ec`, `acpi_ec`) against `kernel-devel` from the
+out-of-tree kernel modules (`msi-ec`, `acpi_ec`, `ntfsplus`) against `kernel-devel` from the
 `akmods:ogc-<fedora>-<kver>` carrier and stages the `.ko` files for the final stage, which
 installs them into `updates/` and runs `depmod`.
+
+Each module is one directory holding a single `source.env`, sourced by the loop in
+`build-kmods.sh`: `URL`, a pinned `COMMIT`, `KO_NAME`, `KO_DEST`, plus two optional keys —
+`KO_BUILD_PATH` (the built object's path relative to the clone root, when the Makefile emits
+it in a subdirectory: `acpi_ec`) and `KO_BUILD_ARGS` (extra `make` variables, needed when the
+module's kbuild fragment is gated on a kernel config symbol the target kernel leaves unset:
+`ntfsplus`). Adding a module is one new directory plus one entry in `KMODS=()` and one
+numbered install script in the 70 decade.
 
 ## Repository layout
 
@@ -99,7 +107,7 @@ bazzite-mx/
 │   ├── shared/                  # Orchestrator + helpers (build.sh,
 │   │                              build-mx.sh, copr-helpers.sh,
 │   │                              clean-stage.sh, validate-repos.sh)
-│   ├── mx/                      # 17 numbered domain scripts (<NN>-<domain>.sh)
+│   ├── mx/                      # 18 numbered domain scripts (<NN>-<domain>.sh)
 │   ├── kmods/                   # Out-of-tree kernel module builder (see note above)
 │   └── tests/                   # 10-tests-mx.sh (smoke)
 ├── system_files/                # Rsync'd into / by build.sh (yum.repos.d, skel,

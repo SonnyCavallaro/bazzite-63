@@ -3,7 +3,7 @@
 bazzite-mx layers on `ublue-os/bazzite` and borrows heavily from `bazzite-dx`, Aurora-DX, and
 AmyOS — those projects do the heavy lifting, and most domains are adopted as-is. Where this
 project's use case (a single-maintainer dev & sysadmin workstation) calls for a different
-choice, the divergence is deliberate and recorded here. **20 divergences** are documented
+choice, the divergence is deliberate and recorded here. **21 divergences** are documented
 below, each with provenance and rationale, so future sessions don't re-derive them; they
 accumulate as each domain commit lands.
 
@@ -463,6 +463,41 @@ plain Linux tarball; installing it straight from JetBrains avoids depending on H
 `ublue-os/tap`, and the Cellar for a single GUI app, and keeps it entirely in the user's home
 where its own updater expects it. A checksum-verified download from the vendor is a
 reproducible, auditable trust anchor with no third-party repo or brew subsystem to police.
+
+## 21. NTFSPLUS shipped as an out-of-tree module
+
+**Upstream**: Linux 7.1 merged **NTFSPLUS** — Namjae Jeon's from-scratch in-kernel NTFS
+read/write driver, built on iomap, folios and delayed allocation, with a userspace fsck —
+as `fs/ntfs/` under `CONFIG_NTFS_FS`. It is optional at build time and coexists with ntfs3
+by design (`fs/ntfs3/Kconfig`: `depends on !NTFS_FS || m`). The ogc kernel leaves it off:
+`# CONFIG_NTFS_FS is not set` in `/usr/src/kernels/<kver>/.config`, no `ntfs.ko` anywhere
+under `/usr/lib/modules/<kver>/`. An NTFS volume therefore mounts through ntfs3 (kernel) or
+ntfs-3g (FUSE), and the newer driver is simply unavailable. Turning the symbol on means
+rebuilding the kernel through ogc's `kernel-packages` and maintaining a kernel fork.
+
+**Us**: a third out-of-tree module in the existing `kmod-builder` stage, on the same pattern
+as the two EC modules — `build_files/kmods/ntfsplus/source.env` (author's own standalone
+tree `namjaejeon/linux-ntfs`, pinned commit `ca149db`) and `build_files/mx/72-ntfsplus.sh`,
+installing into `updates/fs/ntfs/` so a later ogc build that enables the symbol is overridden
+by depmod priority. Two properties are specific to this module:
+
+- Its kbuild fragment is gated on the kernel's own `CONFIG_NTFS_FS`, so the build produces
+  nothing and still exits 0 unless the symbol is forced — hence the new optional
+  `KO_BUILD_ARGS` key in `source.env` (gotcha #25).
+- No autoload and no `ujust` recipe ship with it, unlike `msi-ec`: the kernel loads a
+  filesystem module on demand at the first mount of its type.
+
+The driver registers the filesystem type **`ntfs`**, and `/usr/sbin/mount.ntfs` is a symlink
+to ntfs-3g, so `mount -t ntfs` reaches the FUSE helper and `mount -i -t ntfs` reaches the
+kernel driver (gotcha #26). Shipping the module consequently leaves every existing mount path
+untouched — udisks, fstab and `mount -t auto` keep resolving to ntfs-3g or to the explicitly
+named `ntfs3`.
+
+**Why it matters**: this is a dual-boot workstation whose Windows partition is mounted from
+Linux daily. ntfs3 is the maintained-but-inherited driver; NTFSPLUS passes more of xfstests,
+carries a real fsck, and is the direction the kernel's NTFS support is taking. Having it
+available as an opt-in mount type — at zero cost to anyone who never asks for it, and with
+ntfs3 still in place — turns "wait for the kernel to enable it" into a per-mount choice.
 
 ## How to extend this list
 
