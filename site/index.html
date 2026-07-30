@@ -231,7 +231,12 @@
   .fcard::before{content:"";position:absolute;left:0;top:0;height:100%;width:3px;background:var(--grad);opacity:0;transition:opacity .2s}
   .fcard:hover{border-color:#2c3a52;transform:translateY(-3px)}
   .fcard:hover::before{opacity:.9}
+  .fcard.feat{background:linear-gradient(135deg,#140e2a,#0b1120 62%);border-color:#3a2d63}
+  .fcard.feat::before{opacity:1}
   .f-num{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--violet-l);letter-spacing:.14em;margin-bottom:16px}
+  .f-head{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+  .f-head .f-num{margin-bottom:0}
+  .f-flag{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#c4b5fd;border:1px solid #3a2d63;border-radius:999px;padding:3px 9px}
   .f-title{font-size:18px;font-weight:700;letter-spacing:-.01em;color:#fff;line-height:1.25;margin-bottom:10px;min-height:45px}
   .f-desc{font-size:13.5px;color:var(--muted);line-height:1.55;text-wrap:pretty}
   .f-tags{margin-top:auto;padding-top:16px;font-family:var(--mono);font-size:11.5px;color:#8aa0bd;letter-spacing:-.01em;line-height:1.5}
@@ -497,46 +502,46 @@
   <div class="wrap">
   <div class="scroller" role="list">
 
+    <article class="fcard feat" role="listitem">
+      <div class="f-head"><span class="f-num">01</span><span class="f-flag">new</span></div>
+      <h3 class="f-title">Your Windows disk, on the new driver</h3>
+      <p class="f-desc">Linux 7.1's from-scratch NTFS driver — the one the stock kernel ships switched off — is built in <em>and</em> wired up: ask for <code>ntfs</code> in fstab, or just plug a disk in, and it answers instead of the old FUSE fallback.</p>
+      <div class="f-tags"><b>NTFSPLUS</b> · ntfs3 kept</div>
+    </article>
+
     <article class="fcard" role="listitem">
-      <span class="f-num">01</span>
+      <span class="f-num">02</span>
       <h3 class="f-title">Containers, both ways</h3>
       <p class="f-desc">Docker and Podman both work out of the box, sockets enabled — start a container without first fighting groups and permissions.</p>
       <div class="f-tags"><b>Docker CE</b> · Podman · sockets on</div>
     </article>
 
     <article class="fcard" role="listitem">
-      <span class="f-num">02</span>
+      <span class="f-num">03</span>
       <h3 class="f-title">Windows VMs that just boot</h3>
       <p class="f-desc">A full virtualization stack is live on first boot, with <b>TPM 2.0</b> so Windows 11 installs without the “doesn't meet requirements” wall — no setup ritual.</p>
       <div class="f-tags"><b>libvirt</b> · virt-manager · TPM 2.0</div>
     </article>
 
     <article class="fcard" role="listitem">
-      <span class="f-num">03</span>
+      <span class="f-num">04</span>
       <h3 class="f-title">A tinker-ready dev kit</h3>
       <p class="f-desc">VSCode that won't fight the read-only system, password-free git through the keyring, and a deep tracing toolkit for when you want to look under the hood.</p>
       <div class="f-tags"><b>VSCode</b> · keyring git · tracing tools</div>
     </article>
 
     <article class="fcard" role="listitem">
-      <span class="f-num">04</span>
+      <span class="f-num">05</span>
       <h3 class="f-title">Firefox, the native way</h3>
       <p class="f-desc">Firefox straight from Mozilla instead of a sandboxed Flatpak — system fonts, the keyring, and native messaging all just work.</p>
       <div class="f-tags"><b>Mozilla RPM</b> · no Flatpak</div>
     </article>
 
     <article class="fcard" role="listitem">
-      <span class="f-num">05</span>
+      <span class="f-num">06</span>
       <h3 class="f-title">Disk tools, restored</h3>
       <p class="f-desc">The graphical partition manager Bazzite removed is back — so you're never stuck dropping to the terminal just to resize a disk.</p>
       <div class="f-tags"><b>gparted</b> · GUI partitions</div>
-    </article>
-
-    <article class="fcard" role="listitem">
-      <span class="f-num">06</span>
-      <h3 class="f-title">Your Windows disk, newer driver</h3>
-      <p class="f-desc">The NTFS driver Linux 7.1 added but ships switched off is built in — mount the Windows partition through it whenever you want, with the old one still there.</p>
-      <div class="f-tags"><b>NTFSPLUS</b> · ntfs3 kept</div>
     </article>
 
   </div>

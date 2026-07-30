@@ -487,17 +487,29 @@ by depmod priority. Two properties are specific to this module:
 - No autoload and no `ujust` recipe ship with it, unlike `msi-ec`: the kernel loads a
   filesystem module on demand at the first mount of its type.
 
-The driver registers the filesystem type **`ntfs`**, and `/usr/sbin/mount.ntfs` is a symlink
-to ntfs-3g, so `mount -t ntfs` reaches the FUSE helper and `mount -i -t ntfs` reaches the
-kernel driver (gotcha #26). Shipping the module consequently leaves every existing mount path
-untouched — udisks, fstab and `mount -t auto` keep resolving to ntfs-3g or to the explicitly
-named `ntfs3`.
+The driver registers the filesystem type **`ntfs`** — a name `mount(8)` resolves through
+`/sbin/mount.<type>` before it ever reaches the kernel, and ntfs-3g owns that helper for
+`ntfs` (gotcha #26). `72-ntfsplus.sh` therefore deletes `/usr/sbin/mount.ntfs` and
+`/usr/bin/mount.ntfs` (usrmerge makes the two paths one file), which is what puts the driver
+within reach of every mount path that names a type: fstab lines, systemd `.mount` units,
+`mount -t auto`, and udisks on removable media. The `ntfs-3g` package stays installed because
+`libguestfs-appliance` requires it, and `mount.ntfs-3g` survives, so `mount -t ntfs-3g` names
+FUSE explicitly. `ntfs3` is untouched and keeps serving `ntfs3` fstab lines.
+
+Selecting `ntfs` where a volume used `ntfs3` preserves what the user sees, measured on
+`ldesktop-matrix` (gotchas #27 and #28): both drivers take an object's mode from its WSL
+metadata EA `$LXMOD` and agree bit for bit, both are case-sensitive by default, and the two
+points where they differ — `uid=`/`gid=` precedence over `$LXUID`/`$LXGID`, and the DOS
+read-only attribute — run permissive-only, so no object loses an access bit. The round trip
+is lossless in both directions, which keeps a fallback to `ntfs3` a one-line fstab edit.
 
 **Why it matters**: this is a dual-boot workstation whose Windows partition is mounted from
 Linux daily. ntfs3 is the maintained-but-inherited driver; NTFSPLUS passes more of xfstests,
 carries a real fsck, and is the direction the kernel's NTFS support is taking. Having it
-available as an opt-in mount type — at zero cost to anyone who never asks for it, and with
-ntfs3 still in place — turns "wait for the kernel to enable it" into a per-mount choice.
+selectable per volume — with ntfs3 still in place and ntfs-3g one mount type away — turns
+"wait for the kernel to enable it" into a per-mount choice. The one path that changes without
+being asked is udisks: removable NTFS media, which libblkid types as `ntfs`, mounts on the
+kernel driver instead of on FUSE.
 
 ## How to extend this list
 

@@ -58,9 +58,11 @@ the system keyring work out of the box; and `gparted`, restoring a GUI partition
 
 **A second NTFS driver, for the dual-boot half of the machine.** Linux 7.1 merged NTFSPLUS, a
 from-scratch in-kernel NTFS read/write driver with a real fsck, but the Bazzite kernel builds it
-off. Bazzite MX compiles it as an out-of-tree module, so an NTFS volume can be mounted with
-`sudo mount -i -t ntfs /dev/… /mnt` instead of ntfs3 or the FUSE ntfs-3g. Nothing changes unless you
-ask for it: `ntfs3` stays in place and every automatic mount keeps its current driver.
+off. Bazzite MX compiles it as an out-of-tree module and drops the generic `mount.ntfs` helper
+that hands every `ntfs` mount to the FUSE ntfs-3g, so asking for the type `ntfs` reaches the
+kernel driver — from `/etc/fstab`, from a systemd `.mount` unit, from `mount -t auto`, and from
+udisks when you plug a disk in. `ntfs3` keeps serving `ntfs3` entries and `mount -t ntfs-3g`
+still reaches FUSE, so either older driver is one mount type away.
 
 **Extras that stay opt-in.** 1Password, Sunshine game-streaming, and full MSI-laptop EC
 control each ship as a `ujust` recipe you enable only if you want it — the base image stays lean for

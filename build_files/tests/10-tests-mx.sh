@@ -605,6 +605,36 @@ if [ "${#ntfs_autoload[@]}" -gt 0 ]; then
     echo "FAIL: an ntfs modules-load.d autoload is shipped (the mount itself loads the driver)"
     exit 1
 fi
+# the two generic mount.ntfs helpers are gone: while they exist, mount(8) routes
+# every `mount -t ntfs` — fstab lines and systemd .mount units included — to
+# mount.ntfs-3g and the kernel driver is never reached (gotcha #26)
+NTFS_MOUNT_HELPERS=(
+    /usr/sbin/mount.ntfs
+    /usr/bin/mount.ntfs
+)
+for h in "${NTFS_MOUNT_HELPERS[@]}"; do
+    if [ -e "$h" ] || [ -L "$h" ]; then
+        echo "FAIL: $h still present ($(readlink -f "$h" 2>/dev/null || echo '?')) — fstab type ntfs would reach FUSE"
+        exit 1
+    fi
+done
+# the FUSE escape hatch stays: `mount -t ntfs-3g` keeps working for anyone who
+# wants ntfs-3g explicitly, and libguestfs-appliance keeps its dependency
+NTFS_3G_KEEP=(
+    /usr/sbin/mount.ntfs-3g
+    /usr/bin/ntfs-3g
+)
+for p in "${NTFS_3G_KEEP[@]}"; do
+    if [ ! -x "$p" ]; then
+        echo "FAIL: $p missing (the ntfs-3g escape hatch must survive the helper removal)"
+        exit 1
+    fi
+done
+# proof the helpers went away by deletion and not by dropping the package
+NTFS_3G_RPMS=( ntfs-3g libguestfs-appliance )
+for p in "${NTFS_3G_RPMS[@]}"; do
+    rpm -q "$p" >/dev/null || { echo "FAIL: rpm $p missing"; exit 1; }
+done
 
 echo "MX smoke tests OK."
 echo "::endgroup::"
