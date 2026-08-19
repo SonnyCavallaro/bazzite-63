@@ -126,9 +126,9 @@ Every piece of the one-shot setup is also available as its own recipe:
 ## Build & CI
 
 GitHub Actions builds a single `bazzite-63` image, signs it with cosign, and
-publishes it to GHCR. `watch-upstream` rebuilds hourly when upstream Bazzite
-changes. See [`AGENTS.md`](AGENTS.md) and [`docs/`](docs/) for the build flow,
-conventions, and gotchas.
+publishes it to GHCR. `watch-upstream` checks upstream every 6 hours and
+rebuilds when Bazzite changes. See [`AGENTS.md`](AGENTS.md) and
+[`docs/`](docs/) for the build flow, conventions, and gotchas.
 
 ## License
 

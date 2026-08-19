@@ -2,7 +2,11 @@ name: Watch Upstream
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    # Every six hours. The check itself is cheap, but each one that finds a new
+    # upstream tag starts a full image build, and a longer interval also
+    # coalesces several upstream releases published inside the same window into
+    # a single rebuild instead of one each.
+    - cron: '0 */6 * * *'
   workflow_dispatch:
 
 permissions: {}

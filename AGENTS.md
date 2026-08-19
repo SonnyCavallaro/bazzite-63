@@ -118,7 +118,7 @@ push to main / dispatch / watch-upstream (workflow_call) ─►
             └─► promote  (:stable + :<release_tag> immutable, digest-copied)
                  └─► release  (generate-release.yml, stable=latest / testing=prerelease)
 
-watch-upstream     (cron hourly)     ─► triggers build-{stable,testing}.yml if upstream changed
+watch-upstream     (cron every 6h)   ─► triggers build-{stable,testing}.yml if upstream changed
 clean              (cron Sun 00:15)  ─► prunes the bazzite-63 GHCR package (>90d, keep 7+7)
 generate-release   (workflow_call / dispatch) ─► takes stream_name + upstream_tag + release_tag
 ```
