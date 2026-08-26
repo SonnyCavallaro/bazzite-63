@@ -10,6 +10,9 @@ echo "::group:: ===$(basename "$0")==="
 
 set -euxo pipefail
 
+# shellcheck disable=SC1091
+source /ctx/build_files/shared/writeback-helpers.sh
+
 MASTER=/usr/share/ublue-os/justfile
 IMPORT_LINE='import "/usr/share/ublue-os/just/96-bazzite-63.just"'
 
@@ -28,5 +31,13 @@ else
     } >> "$MASTER"
     echo "Import line appended to $MASTER."
 fi
+
+# This script is the LAST writer of $MASTER: 55-justfile-reconcile.sh closes
+# with a fresh-inode rewrite, and the append above lands in place on that file
+# again, so the torn-writeback exposure returns (gotcha #40 — release
+# 44.20260826.1 shipped $MASTER with its import tail replaced by NUL bytes and
+# `ujust` died on deploy with "unknown start of token '' (U+0000)"). Rewrite
+# once more; check-image-integrity.sh re-proves the cold bytes after rechunk.
+rewrite_fresh_inode "$MASTER"
 
 echo "::endgroup::"
