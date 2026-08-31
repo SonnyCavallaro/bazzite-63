@@ -47,13 +47,15 @@ The Containerfile has **4 stages**:
 
    a. **`/ctx/build_files/shared/build.sh`** — orchestrator that (a) rsyncs
       `system_files/` into `/`, (b) calls `build-mx.sh`, (c) runs
-      `clean-stage.sh`, (d) runs `validate-repos.sh`. Mounts a build context bind,
+      `clean-stage.sh`, (d) runs `validate-repos.sh`, (e) rewrites the two sqlite
+      databases the build wrote onto fresh inodes. Mounts a build context bind,
       plus `/var/cache` and `/var/log` as caches and `/tmp` as tmpfs.
    b. **`/ctx/build_files/tests/10-tests-mx.sh`** — smoke test (rpm-q +
       systemctl is-enabled + file-existence assertions). Bind-mount of `/ctx`
       preserved so the test can read the build context if needed.
-   c. **`bootc container lint`** — strict (no `|| true`). The image cannot ship
-      with hard lint failures.
+   c. **`bootc container lint --fatal-warnings --no-truncate`** — strict (no
+      `|| true`): a new warning (runtime-dir residue, `/boot` content) fails the
+      build instead of scrolling by.
 
 ## Build orchestration order
 
@@ -68,13 +70,27 @@ build-mx.sh
        (mapfile -t < <(find … | sort -V))
 clean-stage.sh
   ├─ restore /etc/dnf/dnf.conf from /tmp/dnf.conf.orig (if staged)
-  ├─ dnf5 versionlock clear
+  ├─ rm -rf /usr/lib/sysimage/libdnf5/*   (versionlock pins are KEPT: the base pins its kernel + mesa)
   ├─ mask + remove flatpak-add-fedora-repos.service
+  ├─ sed enabled=1→0 on terra-mesa.repo (the one base repo shipped file-level enabled)
   ├─ find /var/* -maxdepth 0 -type d ! -name cache ! -name log -exec rm -fr {} \;
-  └─ rm -rf /tmp/* + mkdir -p /var/tmp
+  └─ rm -rf /tmp/* + mkdir -p /var/tmp + chmod 1777
 validate-repos.sh
-  └─ checks OTHER_REPOS list (all tracked .repo files must be enabled=0)
+  └─ hard-fails if any third-party-repos.list entry (or _copr_* / rpmfusion-*) is enabled=1,
+     or listed but absent from the image (`?` prefix = optional)
+step 4: fresh-inode rewrite (VACUUM INTO + os.replace, sidecars dropped)
+  └─ /usr/share/rpm/rpmdb.sqlite
+step 5: relink /usr/lib/sysimage/rpm-ostree-base-db/rpmdb.sqlite (hardlink, sidecars dropped)
 ```
+
+Step 4 runs last because every dnf5 transaction of the stage must already have
+written its pages. It is the sqlite half of the torn-writeback guard; the text
+half is `rewrite_fresh_inode`
+from `shared/writeback-helpers.sh`, called by every script that writes a
+base-image file in place (`55-justfile-reconcile.sh`, `56-justfile-import-63.sh`,
+`21-virt-manager-flatpak-exclude.sh`, `61-chrome-rpm.sh`, `62-plasma-fonts.sh`,
+`68-flatpak-apps.sh`, `copr-helpers.sh`).
+See [`conventions.md`](conventions.md) § Writing base-image files.
 
 ## Repository layout
 
@@ -84,22 +100,26 @@ bazzite-63/
 ├── build_files/
 │   ├── shared/                  # Orchestrator + helpers (build.sh,
 │   │                              build-mx.sh, copr-helpers.sh,
-│   │                              clean-stage.sh, validate-repos.sh)
+│   │                              writeback-helpers.sh, clean-stage.sh,
+│   │                              validate-repos.sh, third-party-repos.list)
 │   ├── mx/                      # Numbered domain scripts
 │   ├── kmods/                   # Out-of-tree kmod sources + builder (msi-ec, acpi_ec, ntfsplus)
 │   └── tests/                   # 10-tests-mx.sh (smoke)
 ├── system_files/                # Rsync'd into / by build.sh
 ├── .github/workflows/
-│   ├── build-stable.yml
-│   ├── build-testing.yml
+│   ├── build.yml
 │   ├── reusable-build.yml
 │   ├── watch-upstream.yml
 │   ├── clean.yml
-│   └── generate-release.yml
+│   ├── generate-release.yml
+│   └── sign-image.yml
 ├── .github/scripts/             # Host-side helpers called by the workflows
 │   ├── changelog.sh             # Release-notes generator (generate-release.yml)
+│   ├── check-image-integrity.sh # Cold post-rechunk check (reusable-build.yml)
+│   ├── promote-release-tags.sh  # Per-stream gate + digest-copy onto the release tags (reusable-build.yml)
 │   ├── resolve-kernel-coords.sh # akmods carrier flavour/version (reusable-build.yml)
-│   └── resolve-release-tag.sh   # Downstream tag schema (build-{stable,testing}.yml)
+│   ├── resolve-release-tag.sh   # Downstream tag schema (build.yml)
+│   └── verify-published-signatures.sh # cosign proof with negative control (reusable-build.yml)
 ├── cosign.{key,pub}             # .key gitignored
 ├── AGENTS.md                    # Canonical project guide (every agent)
 ├── CLAUDE.md                    # Claude Code bridge → @AGENTS.md
@@ -111,27 +131,52 @@ bazzite-63/
 
 ## CI matrix
 
-`.github/workflows/reusable-build.yml` is called by both `build-stable.yml` and
-`build-testing.yml`. Each parent workflow passes a different `stream_name`
-("stable" or "testing"), and reusable-build resolves the upstream tag accordingly.
+`.github/workflows/build.yml` is the single entry point for both streams, the
+shape upstream `Build Bazzite` uses. Its `plan` job decides the stream set — the
+`streams` input on a dispatch or a `Watch Upstream` call, `both` by default —
+and emits `matrix_include`, a JSON array of flavour × stream entries.
+`reusable-build.yml` is called **once**, with that matrix: `stream_name` is a
+matrix dimension, not a workflow input, so the run shows ONE `Build matrix`
+node. The per-stream tags travel as four inputs
+(`upstream_tag_{stable,testing}`, `release_tag_{stable,testing}`) and each
+matrix job picks its pair in the `Select stream inputs` step.
 
-The matrix has **1 entry** (`bazzite-63` / `bazzite` base). So a push to `main`
-triggers **2 build jobs** (1 image × 2 streams); a push to `develop` triggers
-only the stable stream (`build-testing.yml` runs on `main` pushes only).
+The matrix has **1 flavour** (`bazzite-63` / `bazzite` base) × 2 streams =
+**2 build jobs**, running in parallel, in every context — a branch dispatch
+(`gh workflow run build.yml --ref <branch>`) and a PR included: the base image
+differs per stream (kernel, `.repo` set), so a stable-only sandbox would be
+blind to testing-base drift. Outside `main` each job runs the sandbox
+integrity check against its `raw-img` — no rechunk, no push. The single
+flavour has one consequence for the promote jobs: `download-artifact` with a
+pattern matching ONE artifact extracts flat, so both promote jobs pin the flat
+layout with `merge-multiple: true` and `promote-release-tags.sh` globs
+`promote/promote.env` (upstream's nested `promote/promote-*-<stream>/` glob
+would count zero manifests here).
+
+Downstream of the matrix, the gate is **per stream**: `promote-{stable,testing}`
+each count their own `promote-*-<stream>` manifests against `matrix_include`
+(never a literal) and abort loudly on a shortfall; `verify-{stable,testing}`
+mirror them. The always-running `gate` job turns those results into the
+callee outputs `stable_ok`/`testing_ok`, which the caller's `release-*` jobs
+gate on instead of the callee's aggregate result — a broken testing base
+(upstream's doing) must not sink the stable release, and vice versa.
 
 `concurrency.cancel-in-progress: false` (with a literal kebab-case
-`group: bazzite-63-{stream}-${{ github.ref_name }}`) means in-flight runs are
-not auto-cancelled: each push's build completes, and `develop` runs proceed in
-parallel with `main`. See AGENTS.md critical convention #8 for why the group
-must never be `${{ github.workflow }}`.
+`group: bazzite-63-build-${{ github.ref_name }}`) means in-flight runs are
+not auto-cancelled: each push's build completes, and branch runs proceed in
+parallel with `main`. The callee keeps its own literal group
+(`bazzite-63-reusable-<ref>`). See AGENTS.md critical convention #8 for why
+the group must never be `${{ github.workflow }}`.
 
 ## Repo isolation invariant
 
 Every third-party repository file ships to the image with `enabled=0`.
-`validate-repos.sh` enforces this for an explicit list of tracked filenames and
-globs (`_copr:*`, `rpmfusion-*`). The lean image currently vendors no extra repos
-beyond the inherited baseline — prefer Flatpak / `brew` / `mise` for new tools
-before reaching for a baked RPM.
+`validate-repos.sh` enforces this for the filenames listed in
+`build_files/shared/third-party-repos.list` plus the globs `_copr:*` and
+`rpmfusion-*`, and `check-image-integrity.sh` re-proves the same list on the
+chunked image's cold bytes. The lean image vendors `google-chrome.repo` beyond
+the inherited baseline — prefer Flatpak / `brew` / `mise` for new tools before
+reaching for a baked RPM.
 
 ## Cockpit pattern (intentionally NOT overridden)
 

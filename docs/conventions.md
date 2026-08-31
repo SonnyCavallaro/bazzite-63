@@ -12,6 +12,9 @@
   - **Exception**: `validate-repos.sh` uses `set -eou pipefail` (no `-x`)
     because its own `echo` output is the report and `-x` would garble it.
     This deviation is Aurora upstream's choice; we kept it for parity.
+  - **Exception**: sourced helper libraries (`copr-helpers.sh`,
+    `writeback-helpers.sh`) use `set -euo pipefail` (no `-x`): the caller's
+    own `-x` already echoes every command the helpers run.
 - **Log grouping**: wrap script body with
   `echo "::group:: ===$(basename "$0")==="` and `echo "::endgroup::"` so
   GitHub Actions UI nests the output collapsibly.
@@ -26,6 +29,66 @@
   silently fails on empty matches under `set -e`. The `sort -V` (version
   sort) ensures `10-foo.sh` comes before `20-foo.sh` before `30-foo.sh`
   before `100-foo.sh`, unlike alphabetic sort.
+
+## Writing base-image files
+
+A build step that modifies a file the base image already ships writes into an
+overlayfs **copied-up** inode, and the 6.17-azure kernel on runner image
+`ubuntu-24.04 20260816+` loses page writeback of exactly those writes. In-build
+reads answer from warm page cache, so the build stays green while the committed
+layer carries a NUL tail — the shape that shipped a `ujust`-killing master
+justfile in release `44.20260826.1` (gotcha #40).
+
+A file the build **creates** lives natively in the upper layer and is
+unaffected. Among the tools that touch an existing file, only the ones writing
+a temporary and renaming it land on a fresh inode — measured by upstream
+bazzite-mx on 2026-08-28 with `stat -c %i` on the host and inside an overlay
+container:
+
+| Idiom | Inode | Class |
+|---|---|---|
+| `sed -i`, `install`, `mv` (same-fs and cross-fs), `rsync`, `depmod`, `cp --remove-destination` | replaced | safe |
+| `>>`, `cat tmp > file`, `cp src dst`, `tee`, `curl -o`, `truncate`, sqlite writes | kept | **exposed** |
+
+**The rule**: a script whose last write to a base-image file uses an exposed
+idiom calls `rewrite_fresh_inode` on that file before it exits.
+
+```bash
+# shellcheck disable=SC1091
+source /ctx/build_files/shared/writeback-helpers.sh
+...
+grep -qxF "$line" "$FILE" || echo "$line" >> "$FILE"
+rewrite_fresh_inode "$FILE"
+```
+
+`rewrite_fresh_inode` copies with `--preserve=mode,ownership,timestamps`,
+fsyncs, and renames — so a stripped justfile keeps the `0644` `ujust` needs.
+Every writer of a file rewrites what it wrote, so the guard survives a
+reordering of the numbered scripts: `55-justfile-reconcile.sh` rewrites the
+master justfile and `56-justfile-import-63.sh`, the last writer, rewrites it
+again after its own append; `68-flatpak-apps.sh` rewrites the Flatpak install
+list it extends.
+
+A tool's side effect counts as a write: `dnf5 copr disable` flips `enabled=`
+in place, so `copr_install_isolated` rewrites the COPR's `.repo` file — the one
+for `ublue-os/packages` lands on a path the base image already ships, and
+`validate-repos.sh` enforces the very value it carries. `61-chrome-rpm.sh`
+(`/etc/xdg/mimeapps.list`) and `62-plasma-fonts.sh` (`/etc/xdg/kdeglobals`,
+written through `kwriteconfig6`) close with the same rewrite, so their
+guard never rests on a tool's write idiom.
+
+For a database the tool owns, use its own atomic rewrite instead: `build.sh`
+step 4 runs `VACUUM INTO` + `os.replace` over the rpmdb, then drops the `-wal`
+/ `-shm` sidecars the vacuum folded in; step 5 hardlinks the rewritten rpmdb
+into `/usr/lib/sysimage/rpm-ostree-base-db/`, so `rpm-ostree status` on a host
+describes this image and not plain Bazzite. The other route is not to ship the
+database at all: `clean-stage.sh` empties `/usr/lib/sysimage/libdnf5/`, which
+took libdnf5's transaction history off this surface (and keeps the libdnf5
+chunk identical between builds).
+
+Detection is the other half, and it lives in
+[`.github/scripts/check-image-integrity.sh`](../.github/scripts/check-image-integrity.sh)
+— see § Smoke tests below.
 
 ## Comments in code
 
@@ -87,34 +150,48 @@
 ## Repo isolation invariant
 
 Every third-party repo file in `system_files/etc/yum.repos.d/` ships
-`enabled=0`. `validate-repos.sh` hard-enforces this for the explicit
-`OTHER_REPOS` list — the authoritative list lives in that script
-(`OTHER_REPOS=(…)`); keep this enumeration in sync with it:
+`enabled=0`. The single authoritative enumeration is
+`build_files/shared/third-party-repos.list`, one basename per line.
+`validate-repos.sh` reads it and hard-fails the build on any listed repo left
+`enabled=1` **or listed but absent from the image** — the list is authoritative
+in both directions: an absent entry means a renamed upstream repo file or an
+install script that stopped shipping it, and tolerating it leaves the renamed
+file unenforced (base `44.20260831` renamed `fedora-multimedia.repo` to
+`negativo17-fedora-multimedia.repo`; the tolerant loop said nothing). A `?`
+prefix marks an optional entry — enforced `enabled=0` when present, tolerated
+when absent — for repos the base has shipped before and may ship again.
+`reusable-build.yml` hands the same file to `check-image-integrity.sh`, which
+re-proves both rules on the chunked image's cold bytes — a torn tail that drops
+an `enabled=` line makes dnf treat the section as ENABLED, so the warm check
+alone is not enough. The current entries:
 
 ```
-fedora-multimedia.repo
+negativo17-fedora-multimedia.repo
 tailscale.repo
 vscode.repo
 docker-ce.repo
-mozilla.repo
 1password.repo
 teackot-msi.repo
 fedora-cisco-openh264.repo
-fedora-coreos-pool.repo
+?fedora-coreos-pool.repo
 terra.repo
+terra-extras.repo
+terra-mesa.repo
 google-chrome.repo
 ```
 
-The lean image currently vendors only a subset of these files in git
-(`system_files/etc/yum.repos.d/`); the others are inherited from upstream.
-The rule applies regardless: any new third-party repo must be added to
-`OTHER_REPOS` and must ship `enabled=0`.
+The lean image vendors only a subset of these files in git
+(`system_files/etc/yum.repos.d/`: docker-ce, vscode, 1password, teackot-msi,
+google-chrome); the others come with the Bazzite base. `mozilla.repo` is not
+listed: it left with the Firefox RPM, and a listed-but-absent entry now fails
+the build. The rule applies regardless: any new third-party repo must be added
+to `third-party-repos.list` and must ship `enabled=0`.
 
 When adding a new third-party repo:
 
 1. Vendor the .repo file in `system_files/etc/yum.repos.d/<name>.repo` with
    `enabled=0`.
-2. Add `<name>.repo` to `OTHER_REPOS` in `validate-repos.sh`.
+2. Add `<name>.repo` to `build_files/shared/third-party-repos.list`.
 3. Use `dnf5 -y install --enablerepo=<section> <pkg>` in the mx script.
 
 Prefer Flatpak / `brew` / `mise` for new tools before reaching for a baked
@@ -122,8 +199,14 @@ RPM and a new vendor repo.
 
 The catch-all sweep at the bottom of `validate-repos.sh` is **informational
 only** — it lists every other `.repo` file's enabled state but does not
-fail the build, because core Fedora/Bazzite repos (`fedora.repo`,
-`fedora-updates.repo`, `terra-mesa.repo`) are legitimately `enabled=1`.
+fail the build, because the core Fedora repos (`fedora.repo`,
+`fedora-updates.repo`, `fedora-updates-archive.repo`) are legitimately
+`enabled=1`. They are the only three left enabled in the shipped image, so a
+fourth line in that sweep is a third-party repo nobody registered. A base-image
+repo that must ship disabled is registered in the list like any other and
+disabled by a `sed` in `clean-stage.sh` (`terra-mesa.repo`, the one the base
+ships file-level `enabled=1`); upstream's own `repos.override.d` route is
+invisible to both validators.
 
 ## COPR install pattern
 
@@ -172,6 +255,44 @@ which sed's the resulting file rather than calling setopt.
   saves debugging time.
 - File-existence checks: prefer `[ ! -x "$path" ]` for executables, plus a
   content check via `grep -q '<pattern>'` if the content matters.
+
+### The cold post-rechunk check
+
+Every assertion in `10-tests-mx.sh` is a **warm** read: it answers from the
+page cache the build just filled, so it cannot see a torn tail on disk.
+`.github/scripts/check-image-integrity.sh` re-proves the same artefacts on the
+chunked image, whose read path surfaces the committed bytes.
+`reusable-build.yml` mounts it into `localhost/chunked-img` and runs it right
+after the rechunk, before any GHCR push. Builds outside `main` (a branch
+dispatch, a PR) never rechunk, so the same script runs there against `raw-img`
+(the sandbox step, gated on `PUSH_ENABLED` being false): a warmer read that
+still catches the logical classes — script regressions, malformed artefacts,
+lost lines.
+
+It carries two nets, because they fail differently:
+
+- a **NUL sweep** over every build-mutated text artefact — a torn tail wherever
+  it lands. Each named path must exist and each glob group must match a file,
+  so an upstream rename fails the check instead of emptying it;
+- **per-artefact probes** for a tear that ends on a clean boundary, which the
+  sweep cannot see: `PRAGMA integrity_check` on the rpmdb and on the relinked
+  `rpm-ostree-base-db` (equal row counts prove the step 5 hardlink) plus their
+  absent sidecars, the emptied `/usr/lib/sysimage/libdnf5/`, a real
+  `just --summary` parse of the master with its import tree (the three
+  downstream imports, `96-bazzite-63.just` included), a JSON parse of
+  `image-info.json` and the rewritten `bazzite-63` identity, the appended
+  blocklist deny line and the appended tail of the Flatpak install list, each
+  out-of-tree module resolving through the binary `modules.dep.bin` index,
+  every repo of `third-party-repos.list` present (or `?`-optional) and still
+  carrying an `enabled=` line set to 0 — a torn tail that drops that line
+  makes dnf treat the section as ENABLED — and the base's versionlock pins
+  (kernel, mesa) surviving the stage.
+
+Adding an artefact to the build adds it to the sweep list. A new or changed
+probe is proven on a known-bad input before its first green run is trusted:
+commit a container with that one artefact torn (`printf '\0\0\0' >> <file>`,
+a clean truncation, a `dd` over a btree page) and confirm the check exits
+non-zero naming it.
 
 ## Vendoring third-party content
 
