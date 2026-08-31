@@ -15,9 +15,13 @@
 4. **Commit** when the implementation looks correct. Conventional Commits,
    descriptive body.
 5. **Pause for user confirmation** before pushing.
-6. **Push → open PR to `main`**: the branch policy builds without publishing or
-   signing — this is the validation surface. A full image build is impractical
-   locally on a non-Linux dev box; CI is the only reliable pre-merge check.
+6. **Push → open PR to `main`** (or dispatch `gh workflow run build.yml
+   --ref <branch> -f streams=both` when the branch sits on a rewritten upstream
+   history and its PR never runs checks): the branch policy builds both streams
+   in parallel without publishing or signing and runs the sandbox integrity
+   check on each — this is the validation surface (~10-15 min wall-clock on
+   `ubuntu-26.04`). A full image build is impractical locally on a non-Linux
+   dev box; CI is the only reliable pre-merge check.
 7. **Monitor** via `gh run list --repo SonnyCavallaro/bazzite-63` or the
    GitHub Actions UI. Act only on fully verified outcomes.
 8. **If CI fails**: debug from logs, fix, push to the same branch. The PR run
@@ -59,58 +63,97 @@ table. Future sessions should not re-derive the decision.
 
 ## CI behaviour to know about
 
+### The branch sandbox
+
+Every change runs on a branch first: a branch dispatch or a PR runs the same
+two-job matrix as `main` (the single flavour × both streams, in parallel) plus
+the sandbox integrity check (`check-image-integrity.sh` against each `raw-img`)
+— no rechunk, no GHCR push, no release — on its own concurrency group, in
+parallel with `main`. The testing stream is built there too because its base
+differs (kernel, `.repo` set — the `fedora-multimedia` →
+`negativo17-fedora-multimedia` rename of 2026-08-31 broke a repo guard exactly
+there), so a stable-only sandbox would be blind to it; the jobs run in
+parallel, so the sandbox answers in the wall-clock of one (~10-15 min on
+`ubuntu-26.04`). `main` receives the change once the sandbox run is green; a
+push to `main` is a release. The cold post-rechunk run of the same check
+happens on `main` only, so a torn tail that only the rechunked read path
+surfaces stays a `main`-side signal (gotcha #40), and so does anything
+rechunk-gated (compose flags, label stamping).
+
 ### `paths-ignore`
 
-Both `build-stable.yml` and `build-testing.yml` have:
+`build.yml` has:
 ```yaml
 paths-ignore:
   - "**.md"
   - "LICENSE"
   - "docs/**"
   - "site/**"
+  - ".claude/**"
   - ".github/workflows/deploy-pages.yml"
 ```
 
-(The last two entries are kept verbatim from bazzite-mx even though `site/` and
-`deploy-pages.yml` are not part of this fork: entries matching nothing are
-inert, and leaving the workflows untouched keeps upstream syncs free.)
+(`site/**` and `deploy-pages.yml` are kept verbatim from bazzite-mx even though
+`site/` and `deploy-pages.yml` are not part of this fork: entries matching
+nothing are inert, and leaving the workflows untouched keeps upstream syncs
+free.)
 
 GitHub semantics: workflow runs if **any** file fails to match. So a commit
-touching only `*.md` files inside `docs/` does NOT trigger a build. But a
-commit touching `.gitignore` OR `.claude/settings.json` (neither matches a
-pattern above) DOES trigger a build.
+touching only `*.md` files inside `docs/` or agent config under `.claude/`
+does NOT trigger a build. But a commit touching `.gitignore` (no match) DOES
+trigger a build.
 
-If we ever extend paths-ignore (e.g., to add `.claude/**`, `.gitignore`),
-the commit doing so still triggers ONE build because workflow files
-themselves don't match paths-ignore. After that, future docs-only commits
-become free.
+If we ever extend paths-ignore (e.g., to add `.gitignore`), the commit doing
+so still triggers ONE build because workflow files themselves don't match
+paths-ignore. After that, the ignored classes become free.
 
 ### Concurrency
 
 ```yaml
 concurrency:
-  group: bazzite-63-stable-${{ github.ref_name }}   # build-testing.yml: bazzite-63-testing-…
+  group: bazzite-63-build-${{ github.ref_name }}
   cancel-in-progress: false
 ```
 
 The group is a **literal** kebab-case string, never `${{ github.workflow }}`: in a chained
 `workflow_call` the callee's `github.workflow` resolves to the *caller's* name, collides with the
 caller's own group, and triggers "deadlock detected → canceling" on every chained call
-(empirically observed 2026-05-14). Per-ref scoping via `github.ref_name` lets `develop` runs
+(empirically observed 2026-05-14). Per-ref scoping via `github.ref_name` lets branch runs
 proceed in parallel with `main` instead of queueing behind it.
 
 `cancel-in-progress: false` — runs are **not** auto-cancelled; each push's build completes. See
 AGENTS.md critical convention #8.
 
+One workflow covers both streams, so one group covers both: a `Watch Upstream` trigger queues
+behind an in-flight push run on the same ref instead of racing it (the two streams used to sit
+on `bazzite-63-stable-…` and `bazzite-63-testing-…`). `reusable-build.yml` is called once per
+run and holds one literal group (`bazzite-63-reusable-{ref}`); only the release callee keeps a
+per-stream group (`bazzite-63-release-{stream}-{tag}`). The two streams of one run live in the
+same call, so they cannot collide with each other by construction — and they share the run's
+runners: the hand-serialised stable→testing publish of the degraded-runner era is gone with
+the `ubuntu-26.04` move, and the `streams=stable` / `streams=testing` dispatch inputs remain
+the lever if a single run ever needs splitting again.
+
 ### Watch Upstream Releases
 
-A separate workflow runs hourly via `cron`. It detects new Bazzite stable /
-testing releases and re-triggers our `build-*.yml` against the same commit
-to refresh the image with the new base. So our published image lags the
-upstream by ≤ 1 hour for stable, ≤ 1 hour for testing.
+A separate workflow runs every six hours via `cron` (the fork's deliberate
+interval; upstream polls hourly). It detects new Bazzite stable / testing
+releases and re-triggers `build.yml` against the same commit with the stream
+set that changed (`streams=both|stable|testing`) to refresh the image with the
+new base. So our published image lags the upstream by ≤ 6 hours per stream,
+and several upstream releases inside one window coalesce into a single rebuild.
 
-This means **GitKraken (URL-fetched RPM) auto-updates within 1 hour** of a
-new GitKraken release, because every triggered build re-fetches the URL.
+Nothing else moves on its own: GitKraken, shellcheck, shfmt, gh and glab are
+pinned by version and sha256 in their build scripts (`35-git-tools.sh`,
+`41-dev-cli-pinned.sh`) and change only through an explicit pin bump — never
+because a triggered build re-fetched a URL. GitKraken's URL is a "latest"
+redirect, so its next release makes every build fail at the sha256 check until
+the pin is bumped (from upstream, at the next realign, or locally).
+
+Pins (action SHAs, the cosign version and its flag pairing, runner labels, the
+kmod sources, the GitKraken/shellcheck/shfmt checksums) reach this fork through the realign to bazzite-mx, whose
+`docs/workflow.md` § Keeping the pins fresh owns the comparison procedure; no
+dependency bot runs here either.
 
 ### Cosign signing
 
@@ -124,6 +167,47 @@ cosign verify --key cosign.pub ghcr.io/sonnycavallaro/bazzite-63:stable
 
 The local `cosign.key` is gitignored — only present on the maintainer's
 machine and in GitHub secrets.
+
+An image that ended up published **unsigned** — a build whose sign step failed,
+or a tag re-pointed by hand with `skopeo copy` — is repaired with the
+`Sign Image` workflow (`sign-image.yml`, dispatch-only), which takes the full
+`ghcr.io/<owner>/<image>:<tag>`, refuses anything outside this owner's
+namespace, signs the resolved **digest** and then verifies the signature
+against `cosign.pub` before reporting success:
+
+```bash
+gh workflow run "Sign Image" --repo SonnyCavallaro/bazzite-63 \
+  -f image=ghcr.io/sonnycavallaro/bazzite-63:44.20260901
+```
+
+#### Orphan-tag playbook
+
+A build cancelled or failed mid-run can leave a dated GHCR tag with no GitHub
+Release behind it (since promote moved after the whole matrix gate, new orphans
+cannot form — the playbook covers residue and hand-made tags). The symptom is a
+release resolving to `.1` with no `<stream>-<date>` release in sight:
+`resolve-release-tag.sh` counts GHCR tags as collisions too.
+
+1. **Find it**: `skopeo list-tags docker://ghcr.io/sonnycavallaro/bazzite-63`
+   against `gh release list` — a dated tag with no release is the orphan.
+2. **Never delete a version that carries shared tags**: a manifest usually holds
+   many tags (`44.<date>` is also `latest`, `stable`, `stable-44`,
+   `staging-stable`), and the GHCR API deletes versions, not tags. Move the
+   wanted tags first with
+   `skopeo copy --preserve-digests docker://…@<digest> docker://…:<tag>`
+   (manifest only, instant), or push a throwaway manifest onto the orphan tag
+   so it gets a version of its own.
+3. **Delete by version id**: `gh api user/packages/container/bazzite-63/versions`
+   (no leading slash from Git Bash, which rewrites `/repos/...` as a filesystem
+   path), then `-X DELETE` on the orphan's id — and on its signature, a
+   separate version tagged `sha256-<digest>.sig`, or the signature stays
+   orphaned.
+4. **Re-sign if a tag was re-pointed by hand**: the `Sign Image` dispatch above,
+   by digest.
+
+A public version with more than 5000 downloads cannot be deleted through the
+API (HTTP 400, GitHub support only): re-point its tag to the right digest
+instead and leave the version untagged and inert.
 
 ## Communication during a session
 
