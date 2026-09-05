@@ -391,14 +391,33 @@ echo "repo isolation ok ($checked third-party repos disabled, $swept COPR/RPM Fu
 # what this catches is the wholesale wipe.
 VERSIONLOCK=/etc/dnf/versionlock.toml
 mapfile -t VL_NAMES < <(sed -n 's/^name = "\(.*\)"$/\1/p' "$VERSIONLOCK")
+# The membership tests read the array directly: a `printf | grep -q` pipeline
+# under pipefail fails on SIGPIPE once the list outgrows one write (the testing
+# base pins qt6-*/plasma-* as ~800 expanded entries). A miss prints what the
+# probe parsed, so a red run carries its own evidence.
+vl_dump() {
+    echo "::group::$VERSIONLOCK as parsed"
+    echo "$(wc -c < "$VERSIONLOCK") bytes, $(wc -l < "$VERSIONLOCK") lines, ${#VL_NAMES[@]} names"
+    printf '%s\n' "${VL_NAMES[@]}" | sort | uniq -c | sort -rn | head -40 || true
+    head -n 30 "$VERSIONLOCK"
+    echo "::endgroup::"
+}
+vl_has() {
+    local n
+    for n in "${VL_NAMES[@]}"; do [ "$n" = "$1" ] && return 0; done
+    return 1
+}
+vl_has_prefix() {
+    local n
+    for n in "${VL_NAMES[@]}"; do [[ "$n" == "$1"* ]] && return 0; done
+    return 1
+}
 [ "${#VL_NAMES[@]}" -ge 10 ] \
     || fail "$VERSIONLOCK carries ${#VL_NAMES[@]} pins (the base ships 21) — versionlock cleared?"
 for pkg in kernel kernel-core; do
-    printf '%s\n' "${VL_NAMES[@]}" | grep -qxF "$pkg" \
-        || fail "$VERSIONLOCK lost its upstream pin for $pkg"
+    vl_has "$pkg" || { vl_dump; fail "$VERSIONLOCK lost its upstream pin for $pkg"; }
 done
-printf '%s\n' "${VL_NAMES[@]}" | grep -q '^mesa-' \
-    || fail "$VERSIONLOCK lost the upstream mesa-* pins"
+vl_has_prefix mesa- || { vl_dump; fail "$VERSIONLOCK lost the upstream mesa-* pins"; }
 echo "versionlock ok (${#VL_NAMES[@]} upstream pins)"
 
 echo "image integrity ok"
