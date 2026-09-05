@@ -145,7 +145,7 @@ Detection is the other half, and it lives in
 | `dnf5 config-manager setopt <id>.enabled=0` is a **silent no-op** on .repo files added via `addrepo --from-repofile=URL` or `--repofrompath` | Repo stays enabled in the image despite the call returning 0 | `sed -i 's/^enabled=1/enabled=0/g' /etc/yum.repos.d/<file>.repo` |
 | `dnf5 -y install --enablerepo=<id> …` is a **runtime-only override** | The .repo file's persistent `enabled=` value is unchanged | Pair with a vendored `enabled=0` repo file; install is one-shot, file remains correctly disabled |
 | `dnf` (dnf4 binary) is a compat shim on F44+ | May not support some setopt syntaxes identically | Always invoke `dnf5` directly in build scripts |
-| `dnf5 install <file.rpm>` works on a downloaded RPM | Lets us install packages with no upstream yum repo (e.g., GitKraken: fetched with curl, sha256 and version pinned in the script, then installed from `/tmp`) | Use sparingly; the pin in the script is the trust anchor when the vendor signs nothing |
+| `dnf5 install <file.rpm>` works on a downloaded RPM | Lets us install packages with no upstream yum repo (e.g., GitKraken: fetched with curl from its "latest" URL, header and payload digests verified with `rpm -K --nosignature`, then installed from `/tmp`) | Use sparingly; when the vendor signs nothing the trust anchor is TLS to the vendor plus the RPM's own digests — never a sha256 pin on a moving URL (gotcha #48) |
 
 ## Repo isolation invariant
 
@@ -308,13 +308,16 @@ on a file the fork does not ship is never caught and fails the self-test.
 - **Default**: vendor the `.repo` file in git under
   `system_files/etc/yum.repos.d/`. Auditable diff in PR review.
 - **Exception (URL-only RPMs)**: when the upstream vendor doesn't publish a
-  yum repo — only a stable RPM URL — download it with `curl -fsSL -o`, check the
-  sha256 and the version pinned in the script, then `dnf5 install` the local
-  file. Document in the script why we deviate and what the trust model is.
+  yum repo — only a stable RPM URL — download it with `curl -fsSL -o`, verify
+  the RPM's own header and payload digests with `rpm -K --nosignature`, log the
+  version fetched, then `dnf5 install` the local file. Document in the script
+  why we deviate and what the trust model is. A sha256 pin belongs only to a
+  versioned, stable URL: behind a "latest" redirect it turns every vendor
+  release into a failed build (gotcha #48).
   Current example: GitKraken (`35-git-tools.sh`,
   `https://release.gitkraken.com/linux/gitkraken-amd64.rpm` — an unsigned RPM
-  behind a "latest" redirect, so the pin is the trust anchor and a new vendor
-  release fails the build until the pin is bumped).
+  behind a "latest" redirect; the build takes the current release and the
+  trust anchor is TLS to the vendor plus the package's digests).
 
 ## When probing third-party download URLs
 

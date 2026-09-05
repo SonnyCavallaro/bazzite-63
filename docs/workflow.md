@@ -143,15 +143,16 @@ set that changed (`streams=both|stable|testing`) to refresh the image with the
 new base. So our published image lags the upstream by ≤ 6 hours per stream,
 and several upstream releases inside one window coalesce into a single rebuild.
 
-Nothing else moves on its own: GitKraken, shellcheck, shfmt, gh and glab are
-pinned by version and sha256 in their build scripts (`35-git-tools.sh`,
-`41-dev-cli-pinned.sh`) and change only through an explicit pin bump — never
-because a triggered build re-fetched a URL. GitKraken's URL is a "latest"
-redirect, so its next release makes every build fail at the sha256 check until
-the pin is bumped (from upstream, at the next realign, or locally).
+Two things move with the vendor: the base image, and GitKraken. Its URL is a
+"latest" redirect with no versioned alternative, so `35-git-tools.sh` takes the
+current release on every build and verifies the RPM's own digests instead of a
+sha256 pin — a pin there fails every build at each GitKraken release (gotcha
+#48). shellcheck, shfmt, gh and glab are pinned by version and sha256 in
+`41-dev-cli-pinned.sh` and change only through an explicit pin bump — never
+because a triggered build re-fetched a URL.
 
 Pins (action SHAs, the cosign version and its flag pairing, runner labels, the
-kmod sources, the GitKraken/shellcheck/shfmt checksums) reach this fork through the realign to bazzite-mx, whose
+kmod sources, the shellcheck/shfmt checksums) reach this fork through the realign to bazzite-mx, whose
 `docs/workflow.md` § Keeping the pins fresh owns the comparison procedure; no
 dependency bot runs here either.
 
