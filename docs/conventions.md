@@ -15,6 +15,13 @@
   - **Exception**: sourced helper libraries (`copr-helpers.sh`,
     `writeback-helpers.sh`) use `set -euo pipefail` (no `-x`): the caller's
     own `-x` already echoes every command the helpers run.
+  - **A presence test never pipes into `grep -q` under `pipefail`**: `grep -q`
+    exits at the first match, the producer takes SIGPIPE on its next write and
+    the pipeline reports 141 — the guard fails exactly when the thing IS there,
+    and only once the producer's output outgrows one write, so a small list
+    passes for weeks (gotchas #30, #49). Read the source directly (a file
+    argument, a here-string, a bash loop over the parsed array) or capture the
+    output first and test the captured value.
 - **Log grouping**: wrap script body with
   `echo "::group:: ===$(basename "$0")==="` and `echo "::endgroup::"` so
   GitHub Actions UI nests the output collapsibly.
