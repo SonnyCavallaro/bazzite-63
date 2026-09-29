@@ -571,7 +571,7 @@ grep -q 'virtual-monitor' "$OVERRIDE_JUSTFILE" || {
 YAFTI=/usr/share/yafti/yafti.yml
 [ -f "$YAFTI" ] || { echo "FAIL: $YAFTI missing (Bazzite Portal layout changed?)"; exit 1; }
 declare -A YAFTI_KNOWN=(
-    [setup-sunshine]="disable enable enable-beta portal status uninstall update virtual-monitor"
+    [setup-sunshine]="disable enable enable-beta enable-brew portal status uninstall update virtual-monitor"
     [setup-virtualization]="virt-off virt-on"
 )
 for recipe in "${!YAFTI_KNOWN[@]}"; do
