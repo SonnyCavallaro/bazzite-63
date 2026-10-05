@@ -123,7 +123,7 @@ build_files/{shared,mx,tests,kmods}/
 system_files/{etc,usr}/
 docs/                       # deep knowledge: architecture, conventions, gotchas, workflow
 .github/workflows/          # build, clean, generate-release, reusable-build, sign-image, watch-upstream
-.github/scripts/            # changelog.sh (release notes) + list-flavours.sh (the flavour set, one owner: the single bazzite-63 line) + resolve-upstream-tag.sh (latest upstream tag, one owner) + resolve-release-tag.sh + resolve-kernel-coords.sh (akmods carrier flavour) + check-image-integrity.sh (cold post-rechunk + --self-test) + promote-release-tags.sh / verify-published-signatures.sh (per-stream gate + signature proof)
+.github/scripts/            # changelog.sh (release notes) + list-flavours.sh (the flavour set, one owner: the single bazzite-63 line) + resolve-upstream-tag.sh (latest upstream tag, one owner) + resolve-release-tag.sh + resolve-kernel-coords.sh (akmods carrier flavour) + check-image-integrity.sh (cold post-rechunk + --self-test) + promote-release-tags.sh / verify-published-signatures.sh (per-stream gate + signature proof) + prune-releases.sh (release retention)
 .claude/                    # Claude Code config: settings.json + commands/preflight.md + hooks/shellcheck-edit.sh
 cosign.{key,pub}            # .key gitignored; private key lives only in the SIGNING_SECRET GitHub secret
 ```
@@ -142,7 +142,7 @@ push to main / dispatch / watch-upstream (workflow_call) ─►
                             └─► release-{stable,testing}  (generate-release.yml, gated on <stream>_ok — one broken stream never sinks the other; stable=latest / testing=prerelease)
 
 watch-upstream     (cron every 6h)   ─► triggers build.yml (streams=both|stable|testing) if upstream changed
-clean              (cron Sun 00:15)  ─► prunes the bazzite-63 GHCR package (>90d, keep 7+7)
+clean              (cron Sun 00:15)  ─► prunes the bazzite-63 GHCR package (>90d, keep 7+7) and the GitHub releases beyond the newest 3 stable + 2 testing
 generate-release   (workflow_call / dispatch) ─► takes stream_name + upstream_tag + release_tag
 sign-image         (dispatch)        ─► signs an already-published image by digest, then verifies it
 ```
@@ -194,6 +194,6 @@ gh workflow run "Sign Image" --repo SonnyCavallaro/bazzite-63 \
 # List published releases
 gh release list --repo SonnyCavallaro/bazzite-63
 
-# Preview what the weekly GHCR cleanup would prune (no destructive action)
+# Preview what the weekly cleanup would prune, GHCR versions and releases (no destructive action)
 gh workflow run "Cleanup GHCR" --repo SonnyCavallaro/bazzite-63 -f dry_run=true
 ```

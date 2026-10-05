@@ -56,3 +56,27 @@ jobs:
           use-regex: true
           exclude-tags: ^(latest|stable|testing|stable-[0-9]+|testing-[0-9]+|staging-(stable|testing))$
           dry-run: ${{ inputs.dry_run || false }}
+
+  releases:
+    name: Prune old GitHub releases
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: false
+
+      # watch-upstream publishes a release per upstream change, testing one or
+      # two a day; the newest 3 stable keep the rollbacks a host may need.
+      - name: Delete releases beyond the newest 3 stable and 2 testing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KEEP_STABLE: 3
+          KEEP_TESTING: 2
+          DRY_RUN: ${{ inputs.dry_run || false }}
+        run: ./.github/scripts/prune-releases.sh
