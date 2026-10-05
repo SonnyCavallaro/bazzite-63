@@ -9,11 +9,12 @@ Flatpak) so they update without an image rebuild or reboot.
 Image: `ghcr.io/sonnycavallaro/bazzite-63`
 
 Derived from [`MatrixDJ96/bazzite-mx`](https://github.com/MatrixDJ96/bazzite-mx)
-(Apache-2.0), itself built on `ublue-os/bazzite`. This fork keeps that build
-machinery — including the upstream MSI-laptop and 1Password integrations, so
-bazzite-mx changes merge at near-zero cost — trims it to a single non-NVIDIA
-flavour, returns Firefox to the base Bazzite Flatpak, and replaces baked-in dev
-tooling with per-user tooling.
+(Apache-2.0), itself built on `ublue-os/bazzite`. This fork builds on that
+machinery — including the upstream MSI-laptop and 1Password integrations —
+trims it to a single non-NVIDIA flavour, returns Firefox to the base Bazzite
+Flatpak, and replaces baked-in dev tooling with per-user tooling. It is
+maintained independently: bazzite-mx changes are ported one at a time when
+they are worth it, never merged wholesale.
 
 ## Design principle: lean image, per-user tools
 
@@ -60,6 +61,11 @@ deployment) and Bazzite's automatic updater covers image + Flatpaks + brew. The
 `mise` runtimes are pinned on purpose — bump them in
 `~/.config/mise/config.toml` when *you* decide. Roll back a bad update with
 `bootc rollback`.
+
+Every rebuild is also published as a dated release, whose tag is pullable
+directly (`sudo bootc switch ghcr.io/sonnycavallaro/bazzite-63:<tag>`). The
+newest three stable and two testing releases are kept; a weekly cleanup prunes
+the older ones.
 
 ## What you get
 
@@ -122,6 +128,16 @@ Every piece of the one-shot setup is also available as its own recipe:
   `mount -t auto`, and from udisks when you plug a disk in. `ntfs3` keeps
   serving `ntfs3` entries and `mount -t ntfs-3g` still reaches FUSE, so either
   older driver is one mount type away.
+- **Sunshine game-streaming host** — Sunshine, the Moonlight server, ships as
+  a system RPM from the community `pvermeer/sunshine` COPR, so screen capture
+  works with no extra setup. Manage it per user with `ujust setup-sunshine`
+  (`enable`, `disable`, `status`, `portal`, `virtual-monitor`). Its virtual
+  mouse and keyboard are not tagged as a joystick, so Parsec and games never
+  see a phantom gamepad.
+- **MSI laptop support, opt-in** — the `msi-ec` and `acpi_ec`
+  embedded-controller modules are built into the image; on MSI hardware
+  `ujust setup-msi` loads them and installs the MControlCenter GUI. Nothing
+  loads until you run it.
 
 ## Build & CI
 
