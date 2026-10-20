@@ -73,7 +73,7 @@ clean-stage.sh
   ├─ restore /etc/dnf/dnf.conf from /tmp/dnf.conf.orig (if staged)
   ├─ rm -rf /usr/lib/sysimage/libdnf5/*   (versionlock pins are KEPT: the base pins its kernel + mesa)
   ├─ mask + remove flatpak-add-fedora-repos.service
-  ├─ sed enabled=1→0 on terra-mesa.repo (the one base repo shipped file-level enabled)
+  ├─ sed enabled=1→0 on the base repos disabled only by override (terra-mesa on F44; six on F45), in every reposdir
   ├─ find /var/* -maxdepth 0 -type d ! -name cache ! -name log -exec rm -fr {} \;
   ├─ rm -rf /tmp/* + mkdir -p /var/tmp + chmod 1777
   └─ sweep /run (keeps the container plumbing) + find /boot -mindepth 1 -delete (bootc lint runs --fatal-warnings)

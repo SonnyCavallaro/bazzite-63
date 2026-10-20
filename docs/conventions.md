@@ -211,9 +211,12 @@ fail the build, because the core Fedora repos (`fedora.repo`,
 `enabled=1`. They are the only three left enabled in the shipped image, so a
 fourth line in that sweep is a third-party repo nobody registered. A base-image
 repo that must ship disabled is registered in the list like any other and
-disabled by a `sed` in `clean-stage.sh` (`terra-mesa.repo`, the one the base
-ships file-level `enabled=1`); upstream's own `repos.override.d` route is
-invisible to both validators.
+disabled by a `sed` in `clean-stage.sh` (`BASE_OVERRIDDEN_REPOS`: the ones the
+base ships file-level `enabled=1` — terra-mesa on F44, six on F45); upstream's
+own `repos.override.d` route is invisible to both validators. Both validators
+look a listed repo up in every dnf5 reposdir (`/etc/yum.repos.d`,
+`/etc/distro.repos.d`, `/usr/share/dnf5/repos.d`, where F45 ships the Fedora and
+Terra files) and check every copy they find (gotcha #50).
 
 ## COPR install pattern
 
