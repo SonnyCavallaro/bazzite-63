@@ -42,22 +42,37 @@ if [ -f /usr/lib/systemd/system/flatpak-add-fedora-repos.service ]; then
     rm -f /usr/lib/systemd/system/flatpak-add-fedora-repos.service
 fi
 
-# terra-mesa.repo is the one third-party repo the base ships with a file-level
-# enabled=1: upstream disables it through /etc/dnf/repos.override.d/
-# 99-config_manager.repo instead (bazzite Containerfile:126, the `setopt` idiom
-# of gotcha #2), while terra-extras.repo it seds. The effective state is the
-# same today, but one dropped override line makes a Terra repo fully live on
-# every deployed host, with a green build and a green cold check -- neither
-# validator reads repos.override.d. Both files are registered in
-# third-party-repos.list now, and this sed makes the file-level invariant they
-# enforce true. `sed -i` renames onto a fresh inode, so it is writeback-safe
-# (conventions.md, Writing base-image files).
-TERRA_MESA=/etc/yum.repos.d/terra-mesa.repo
-if [ -f "$TERRA_MESA" ]; then
-    sed -i 's/^enabled=1/enabled=0/g' "$TERRA_MESA"
-fi
-# An absent file is not silently tolerated: it is a non-optional entry of
-# third-party-repos.list, so validate-repos.sh below fails on it by name.
+# Base repos shipped with a file-level enabled=1 and disabled only through
+# /etc/dnf/repos.override.d/99-config_manager.repo (`config-manager setopt` /
+# `disable`, gotcha #2): terra-mesa on the F44 base (bazzite Containerfile,
+# `setopt terra-mesa.enabled=false`), and on the F45 base all six -- its
+# build_files/bazzite/finalize-image-type no longer seds them.
+# The effective state is the same, but one dropped override line makes the
+# repo fully live on every deployed host, with a green build and a green cold
+# check -- neither validator reads repos.override.d. This sed makes the
+# file-level invariant they enforce true, in every dnf5 reposdir (F45 moved
+# fedora-repos and terra-release to /usr/share/dnf5/repos.d, gotcha #50). Only
+# base-owned files: a blanket sed over third-party-repos.list would hide one of
+# our own install scripts leaving its repo enabled. `sed -i` renames onto a
+# fresh inode, so it is writeback-safe (conventions.md, Writing base-image files).
+BASE_OVERRIDDEN_REPOS=(
+    tailscale.repo
+    _copr_ublue-os-akmods.repo
+    fedora-cisco-openh264.repo
+    terra.repo
+    terra-extras.repo
+    terra-mesa.repo
+)
+for repo in "${BASE_OVERRIDDEN_REPOS[@]}"; do
+    for dir in /etc/yum.repos.d /etc/distro.repos.d /usr/share/dnf5/repos.d; do
+        if [ -f "$dir/$repo" ]; then
+            sed -i 's/^enabled=1/enabled=0/g' "$dir/$repo"
+        fi
+    done
+done
+# An absent file is not silently tolerated: the listed ones are non-optional
+# entries of third-party-repos.list, so validate-repos.sh below fails on them
+# by name.
 
 # Selective /var cleanup (preserve cache and log: both are cache mounts
 # in the final RUN, so they are mountpoints rm cannot remove)

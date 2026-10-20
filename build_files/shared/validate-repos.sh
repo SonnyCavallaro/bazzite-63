@@ -8,6 +8,11 @@ echo "::group:: ===$(basename "$0")==="
 set -eou pipefail
 
 REPOS_DIR="${REPOS_DIR:-/etc/yum.repos.d}"
+# The rest of dnf5's reposdir default (dnf5.conf(5)): F45 ships fedora-repos and
+# terra-release under /usr/share/dnf5/repos.d (gotcha #50). Every copy of a
+# repo file found in any of them is checked, so no precedence rule is assumed.
+read -ra DISTRO_REPOS_DIRS <<< "${DISTRO_REPOS_DIRS:-/etc/distro.repos.d /usr/share/dnf5/repos.d}"
+ALL_REPOS_DIRS=("$REPOS_DIR" "${DISTRO_REPOS_DIRS[@]}")
 VALIDATION_FAILED=0
 ENABLED_REPOS=()
 declare -A CHECKED=()
@@ -58,12 +63,12 @@ fi
 
 check_repo_file() {
     local repo_file="$1"
-    local basename_file
-    basename_file=$(basename "$repo_file")
+    # Bare name for $REPOS_DIR, full path for a copy in another reposdir.
+    local basename_file="${repo_file#"$REPOS_DIR"/}"
 
     [[ ! -f "$repo_file" ]] && return 0
     [[ ! -r "$repo_file" ]] && return 0
-    CHECKED["$basename_file"]=1
+    CHECKED["$repo_file"]=1
 
     local enabled
     enabled=$(enabled_sections "$repo_file")
@@ -129,14 +134,17 @@ for repo_name in "${OTHER_REPOS[@]}"; do
         VALIDATION_FAILED=1
         continue
     fi
-    repo_path="$REPOS_DIR/$repo_name"
+    repo_paths=()
+    for dir in "${ALL_REPOS_DIRS[@]}"; do
+        [[ -f "$dir/$repo_name" ]] && repo_paths+=("$dir/$repo_name")
+    done
     # The list is authoritative in both directions (same rule as the cold
     # check): a listed file absent from the image means a renamed upstream
     # repo file or an install script that stopped shipping it. Skipping it
     # would leave the renamed file unenforced and fail only post-rechunk
     # (base 44.20260831 renamed fedora-multimedia.repo to
     # negativo17-fedora-multimedia.repo and this loop said nothing).
-    if [[ ! -f "$repo_path" ]]; then
+    if [[ ${#repo_paths[@]} -eq 0 ]]; then
         if [[ "$optional" -eq 1 ]]; then
             echo "Optional (absent): $repo_name"
             continue
@@ -146,15 +154,19 @@ for repo_name in "${OTHER_REPOS[@]}"; do
         VALIDATION_FAILED=1
         continue
     fi
-    check_repo_file "$repo_path"
+    for repo_path in "${repo_paths[@]}"; do
+        check_repo_file "$repo_path"
+    done
 done
 
 echo ""
 echo "Checking RPM Fusion repositories..."
-for repo in "$REPOS_DIR"/rpmfusion-*.repo; do
-    [[ -f "$repo" ]] || continue
-    [[ -n "${CHECKED[$(basename "$repo")]:-}" ]] && continue
-    check_repo_file "$repo"
+for dir in "${ALL_REPOS_DIRS[@]}"; do
+    for repo in "$dir"/rpmfusion-*.repo; do
+        [[ -f "$repo" ]] || continue
+        [[ -n "${CHECKED[$repo]:-}" ]] && continue
+        check_repo_file "$repo"
+    done
 done
 
 # Informational catch-all: list every .repo file not covered by the
@@ -170,15 +182,17 @@ done
 # file so it gets hard-enforced disabled instead of just listed here.
 echo ""
 echo "Informational: other .repo files seen in the image (not enforced)..."
-for repo in "$REPOS_DIR"/*.repo; do
-    [[ -f "$repo" ]] || continue
-    basename_file=$(basename "$repo")
-    [[ -n "${CHECKED[$basename_file]:-}" ]] && continue
-    if [[ -n "$(enabled_sections "$repo")" ]]; then
-        echo "  enabled: $basename_file"
-    else
-        echo "  disabled: $basename_file"
-    fi
+for dir in "${ALL_REPOS_DIRS[@]}"; do
+    for repo in "$dir"/*.repo; do
+        [[ -f "$repo" ]] || continue
+        [[ -n "${CHECKED[$repo]:-}" ]] && continue
+        basename_file="${repo#"$REPOS_DIR"/}"
+        if [[ -n "$(enabled_sections "$repo")" ]]; then
+            echo "  enabled: $basename_file"
+        else
+            echo "  disabled: $basename_file"
+        fi
+    done
 done
 
 echo ""

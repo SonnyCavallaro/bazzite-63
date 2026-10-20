@@ -338,6 +338,7 @@ check_repo_disabled() {
     enabled=$(enabled_sections "$1")
     [ -z "$enabled" ] || fail "$1 has an enabled section in the shipped image: ${enabled//$'\t'/ }"
 }
+REPOS_DIRS=(/etc/yum.repos.d /etc/distro.repos.d /usr/share/dnf5/repos.d)
 checked=0
 while IFS= read -r repo; do
     [ -n "$repo" ] || continue
@@ -352,19 +353,26 @@ while IFS= read -r repo; do
         *.repo) ;;
         *) fail "malformed entry '$repo' in the third-party repo list" ;;
     esac
-    path="/etc/yum.repos.d/$repo"
+    # Every dnf5 reposdir, same lookup as validate-repos.sh: F45 ships
+    # fedora-repos and terra-release under /usr/share/dnf5/repos.d (gotcha
+    # #50), and every copy found is checked.
+    found=0
+    for dir in "${REPOS_DIRS[@]}"; do
+        [ -f "$dir/$repo" ] || continue
+        check_repo_disabled "$dir/$repo"
+        found=1
+    done
     # The list is authoritative in both directions: a listed file that is
     # absent means a renamed repo file or an install script that stopped
     # shipping it, and skipping it here would let that regression pass on
     # the strength of the remaining entries.
-    if [ ! -f "$path" ]; then
+    if [ "$found" -eq 0 ]; then
         if [ "$optional" -eq 1 ]; then
             echo "optional repo absent (tolerated): $repo"
             continue
         fi
-        fail "$path is listed in third-party-repos.list but absent from the image"
+        fail "$repo is listed in third-party-repos.list but absent from every reposdir (${REPOS_DIRS[*]})"
     fi
-    check_repo_disabled "$path"
     checked=$((checked + 1))
 done <<< "$THIRD_PARTY_REPOS"
 [ "$checked" -gt 0 ] || fail "none of the listed third-party repos is present in the image"
@@ -374,7 +382,9 @@ done <<< "$THIRD_PARTY_REPOS"
 # fine: isolated COPR installs leave no .repo file behind.
 swept=0
 for repo in /etc/yum.repos.d/_copr:copr.fedorainfracloud.org:*.repo \
-            /etc/yum.repos.d/_copr_*.repo /etc/yum.repos.d/rpmfusion-*.repo; do
+            /etc/yum.repos.d/_copr_*.repo \
+            /etc/yum.repos.d/rpmfusion-*.repo /etc/distro.repos.d/rpmfusion-*.repo \
+            /usr/share/dnf5/repos.d/rpmfusion-*.repo; do
     [ -f "$repo" ] || continue
     check_repo_disabled "$repo"
     swept=$((swept + 1))
