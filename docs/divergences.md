@@ -7,7 +7,7 @@ every entry there holds here too unless an entry below says otherwise.
 
 Contents: layered on bazzite-mx's signed image · identity and signing · the host helpers ·
 Firefox out of the image · Google Chrome, the default browser · the
-default Flatpak set, on demand · Konsole opens PowerShell ·
+default Flatpak set, on demand · tn5250, the IBM i terminal · Konsole opens PowerShell ·
 Segoe UI Variable · the user half of a host ·
 setup-dev · SAP GUI, IBM i Access and Microsoft 365.
 
@@ -126,6 +126,16 @@ take, and what they do not want they remove afterwards.
 
 `70-justfile.sh` imports this image's recipe file, `96-bazzite-63.just`, after bazzite-mx's
 recipes, and refuses a name defined twice ([`conventions.md`](conventions.md) § ujust recipes).
+
+## tn5250, the IBM i terminal
+
+`tn5250` is a system RPM from Fedora's own repositories: `tn5250` and `xt5250`, the 5250
+terminals for IBM i, with `xt5250.desktop`. A host that layered it keeps it through
+`ujust migrate`, whose step 3 runs `rpm-ostree uninstall --all` and drops every layered request
+(bazzite-mx's
+[`docs/migration.md`](https://github.com/MatrixDJ96/bazzite-mx/blob/main/docs/migration.md) §
+The recipe): with the package in the image, the request it removes is already satisfied.
+`43-tn5250.sh` installs it.
 
 ## Konsole opens PowerShell
 

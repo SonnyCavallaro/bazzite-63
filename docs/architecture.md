@@ -68,6 +68,7 @@ Each script owns one artefact and ships a `--self-test`.
 | `40-firefox-flatpak.sh` | bazzite-mx's Firefox RPM removed, its Flatpak deny line dropped, each anchor checked                                                      |
 | `41-chrome.sh`          | Chrome from its vendored repository, payload in `/usr/lib/opt/google`, the default browser; Flatpak denied, helpers turned to Chrome         |
 | `42-flatpak-apps.sh`    | this image's apps appended to Bazzite's default Flatpak list, each once, its VulkanLayer runtimes and Firefox dropped                        |
+| `43-tn5250.sh`          | tn5250 and xt5250, the IBM i 5250 terminal, from Fedora's repositories                                                                       |
 | `45-konsole-profile.sh` | asserts the base still seeds the skel `profile.ps1` into older homes; the files come from `system_files/`                                  |
 | `47-segoe-font.sh`      | Segoe UI Variable in the five font keys of `/etc/xdg/kdeglobals`                                                                             |
 | `70-justfile.sh`        | the base's `setup-dev` cut out of its file; `96-bazzite-63.just` imported after bazzite-mx's recipes: format check, no name twice, every recipe exposed |
