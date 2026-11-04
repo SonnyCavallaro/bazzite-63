@@ -37,7 +37,7 @@ STEP_8_PLAN='    echo "  8. print what is left: Firefox profile copy, reboot, ro
 STEP_8_PLAN+=' where they apply"'
 STEP_8_COMMENT='# Each item only when it applies: the Firefox copy while a Firefox Flatpak is'
 STEP_8_FIREFOX='    if ! flatpaks=$(src_flatpaks 2> /dev/null) \'
-VERIFY_HOST_HEADER='# setup, the Firefox Flatpak reported (the system scope and the invoking'
+VERIFY_HOST_HEADER='# of fstab right and mounted, no residue of an earlier setup, the Firefox'
 VERIFY_HOST_COMMENT='# Nothing is required by the image; Firefox is reported.'
 BASE_RECIPES=/usr/share/ublue-os/just/95-bazzite-mx.just
 VERIFY_HOST_HELP='      echo "GPU and flavour, NTFS driver, ntfsplus residue, Firefox Flatpak,'

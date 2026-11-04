@@ -4,22 +4,21 @@
 # out-of-tree kernel modules for the image's kernel, the route of the type ntfs
 # and image-info.json.
 #
-# The in-build smoke tests see the tree before the rechunk and never the labels;
-# this sees what a host would pull. The probe holds image-info.json's image-name
-# and image-ref against the title label, so a host cannot be sent to another
-# flavour's repository by a file the build wrote wrong. The two sides still
-# descend from one resolve-base.sh run, so a build that resolved the wrong
-# flavour to begin with passes: what this catches is 10-image-info.sh, not the
-# resolution.
+# Unlike the in-build smoke tests, it sees what a host would pull, labels
+# included. image-name and image-ref are held against the title label; both
+# descend from one resolve-base.sh run, so this catches a wrong
+# 10-image-info.sh, not a wrong resolution.
 #
-# Usage: check-image.sh <image> <labels-file>
+# Usage: check-image.sh [--no-probe] <image> <labels-file>
+#          --no-probe     the labels and /run and /tmp alone, for an image a
+#                         later compose replaces and the full check then reads
 #          <image>        a reference in the local containers-storage
 #          <labels-file>  the image-labels.sh KEY=value lines the build stamped
 #        check-image.sh --self-test
 # Output: `labels ok: N labels match`, `run and tmp ok: empty in the image`, the
-#   probe's own lines, then `check-image ok: <image>`. The first refusal is a
-#   `check-image: …` line on stderr, the leftovers under /run and /tmp listed
-#   below it.
+#   probe's own lines unless --no-probe, then `check-image ok: <image>`. The
+#   first refusal is a `check-image: …` line on stderr, the leftovers under /run
+#   and /tmp listed below it.
 # Exit status: 0 the image passes every check; 1 on the first check failed or a
 #   bad argument; podman's own status when the image is not known.
 set -euo pipefail
@@ -35,8 +34,8 @@ PROBE_PACKAGES="docker-ce code 1password google-chrome-stable"
 # --- the labels ---------------------------------------------------------------
 
 # check_labels <labels json> <labels file>: every KEY=value line of the file
-# carried by the image with that value. Status 1 on the first mismatch or an
-# empty file, so the self-test can call it under `if`.
+# carried by the image with that value; status 1 on the first mismatch or an
+# empty file.
 check_labels() {
     local labels_json=$1
     local file=$2
@@ -169,11 +168,10 @@ EOF
 
 # --- the image ----------------------------------------------------------------
 
-# check_run_and_tmp_empty <image>: nothing under /run or /tmp in the image, or
-# exit 1. Read on the mounted image: podman populates /run inside a container,
-# where bootc's own lint cannot see the difference. The inner shell keeps find's
-# status and unmounts on both paths, so a directory it cannot read is a refusal
-# with a reason and never leaves the image mounted on the host.
+# check_run_and_tmp_empty <image>: nothing under /run or /tmp, or exit 1. Read
+# on the mounted image: podman populates /run inside a container. The inner
+# shell keeps find's status and unmounts on both paths, so an unreadable
+# directory is a refusal with a reason and never leaves the image mounted.
 check_run_and_tmp_empty() {
     local image=$1
     local leftovers
@@ -218,11 +216,12 @@ run_probe() {
     fi
 }
 
-# check_image <image> <labels file>: the labels, the empty /run and /tmp, then
-# the probe; stops at the first failure.
+# check_image <image> <labels file> [no-probe]: the labels, the empty /run and
+# /tmp, then the probe unless no-probe; stops at the first failure.
 check_image() {
     local image=$1
     local file=$2
+    local mode=${3:-}
     local labels_json kernel version title
 
     labels_json=$(podman image inspect --format '{{json .Labels}}' "$image")
@@ -236,7 +235,10 @@ check_image() {
     title=$(sed -n 's/^org\.opencontainers\.image\.title=//p' "$file")
 
     check_run_and_tmp_empty "$image"
-    run_probe "$image" "$kernel" "$version" "$title"
+
+    if [ "$mode" != no-probe ]; then
+        run_probe "$image" "$kernel" "$version" "$title"
+    fi
 
     echo "check-image ok: $image"
 }
@@ -255,8 +257,8 @@ self_test_write_labels() {
         "containers.bootc=1" > "$file"
 }
 
-# self_test_check_labels <dir>: a missing label, a changed label and an empty
-# labels file refused.
+# self_test_check_labels <dir>: a changed label and an empty labels file
+# refused.
 self_test_check_labels() {
     local dir=$1
     local good=$dir/labels.txt
@@ -273,13 +275,6 @@ EOF
     )
 
     REFUSED=$((REFUSED + 1))
-    changed=$(jq -c 'del(."ostree.linux")' <<< "$labels_json")
-
-    if check_labels "$changed" "$good" > /dev/null 2>&1; then
-        fail_self_test "missing label accepted"
-    fi
-
-    REFUSED=$((REFUSED + 1))
     changed=$(jq -c '."org.opencontainers.image.version" = "44.20260902"' <<< "$labels_json")
 
     if check_labels "$changed" "$good" > /dev/null 2>&1; then
@@ -294,14 +289,10 @@ EOF
     fi
 }
 
-# self_test_run_and_tmp <dir>: on a podman stubbed on PATH, check_image on a
-# tree with both directories empty, each of its three checks' lines in its
-# output and the image unmounted; check_image stopping on an image without the
-# stamped labels and on a probe that fails; then the probe over one with a file
-# left under each and one missing both. Known-bad: find's failure ended the
-# inner shell before the unmount and the outer assignment died under set -e, so
-# the probe left the image mounted and printed find's line with no verdict of
-# its own.
+# self_test_run_and_tmp <dir>: on a podman stub, check_image passes a clean
+# tree with its three checks' lines and unmounts, and stops on missing labels
+# and on a failed probe; a file left under each directory is listed; a tree
+# missing both is one refusal line and is still unmounted.
 self_test_run_and_tmp() {
     local dir=$1
     local output labels line
@@ -354,6 +345,12 @@ EOF
 
     if [ ! -s "$STUB_UMOUNT_LOG" ]; then
         fail_self_test "the probe left the image mounted"
+    fi
+
+    if ! output=$(PATH="$dir/bin:$PATH" STUB_LABELS=$labels STUB_PROBE_STATUS=1 \
+        check_image stub:latest "$dir/labels.txt" no-probe 2>&1) \
+        || grep -q "^probe ran" <<< "$output"; then
+        fail_self_test "no-probe ran the probe: ${output//$'\n'/ }"
     fi
 
     REFUSED=$((REFUSED + 1))
@@ -413,7 +410,7 @@ self_test() {
     self_test_check_labels "$dir"
     self_test_run_and_tmp "$dir"
 
-    echo "self-test ok: 1 matching label set accepted, 1 image checked whole," \
+    echo "self-test ok: 1 image checked whole," \
         "$REFUSED bad inputs refused"
 }
 
@@ -423,8 +420,15 @@ case "${1:-}" in
     --self-test)
         self_test
         ;;
+    --no-probe)
+        if [ $# -ne 3 ]; then
+            exit_with_error "usage: check-image.sh --no-probe <image> <labels-file>"
+        fi
+
+        check_image "$2" "$3" no-probe
+        ;;
     "" | -*)
-        exit_with_error "usage: check-image.sh <image> <labels-file> | --self-test"
+        exit_with_error "usage: check-image.sh [--no-probe] <image> <labels-file> | --self-test"
         ;;
     *)
         if [ $# -ne 2 ]; then

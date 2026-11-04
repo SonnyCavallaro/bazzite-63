@@ -10,10 +10,9 @@
 #          <revision>     the full sha of the commit the image is built from
 #        image-labels.sh --self-test
 # Output: the 16 labels, one KEY=value line each, on stdout.
-# Exit status: 0 labels written; 1 on a bad argument, when base_version or the
-#   revision is malformed, or the tag names a Fedora other than the base's
-#   kernel's, the reason on stderr as `image-labels: …`; the other coordinates
-#   are taken as resolve-base.sh wrote them.
+# Exit status: 0 labels written; 1 on a bad argument, a malformed base_version
+#   or revision, or a tag naming a Fedora other than the base kernel's, the
+#   reason on stderr as `image-labels: …`; the other coordinates are trusted.
 set -euo pipefail
 
 # shellcheck source=lib.sh

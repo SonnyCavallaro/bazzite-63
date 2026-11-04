@@ -20,9 +20,7 @@ MX_PROFILE_SUM=/usr/share/bazzite-63/bazzite-mx-profile.sha256
 # --- the steps ----------------------------------------------------------------
 
 # The backup is put back by 95-clean-stage.sh with a rename, so the file the
-# image ships sits on a fresh inode. timeout=60 doubles dnf5's 30 s wait for a
-# connection against COPR and mirror flakes, as ublue-os/aurora's
-# build_scripts/shared/build-prep.sh does.
+# image ships sits on a fresh inode. timeout=60 rides out COPR and mirror flakes.
 keep_dnf_cache() {
     cp /etc/dnf/dnf.conf "$BUILD_TMP/dnf.conf.base"
     dnf5 config-manager setopt keepcache=1 timeout=60
@@ -30,6 +28,11 @@ keep_dnf_cache() {
     if ! grep -q '^keepcache=1' /etc/dnf/dnf.conf; then
         fail_build "dnf.conf: keepcache=1 not applied"
     fi
+}
+
+# The cache outlives a build, so metadata it kept could predate the mirrors.
+refresh_dnf_metadata() {
+    dnf_retry makecache --refresh
 }
 
 # By content: 90-validate-repos.sh refuses a base file the build modified and
@@ -68,6 +71,7 @@ record_base_pwsh_profile() {
 # --- main ---------------------------------------------------------------------
 
 keep_dnf_cache
+refresh_dnf_metadata
 record_base_repo_files
 record_base_enabled_repos
 record_base_pwsh_profile

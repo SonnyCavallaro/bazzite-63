@@ -10,8 +10,6 @@ set -euo pipefail
 
 SOURCE_TREE=$(dirname "$(realpath "$0")")/../../system_files
 
-# One FAIL line per file that is missing, differs or carries another mode;
-# one OK line when every file matched.
 check_system_files() {
     local file target count=0 failed=0
 

@@ -3,9 +3,9 @@
 # proves a recipe is defined. Sourced by lib/env.sh and by tests/lib.sh.
 
 # The recipe names, sorted, one per line; status 1 when just cannot parse the
-# file. A file without recipes exits 0 with nothing on stdout, which is why
-# the filter is sed and not grep -v (docs/gotchas.md § `grep -v` on an empty
-# set kills a `pipefail` script silently).
+# file. A file without recipes exits 0 with nothing on stdout, which is why the
+# filter is sed and not grep -v, whose status 1 on an empty set kills a
+# `pipefail` script silently.
 recipe_set() {
     local justfile=$1 summary
 

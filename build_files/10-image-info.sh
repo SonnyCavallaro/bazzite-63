@@ -31,7 +31,6 @@ require_build_args() {
     fi
 }
 
-# Prints the version the base calls itself, read from its image-info.json.
 base_version() {
     local version
 

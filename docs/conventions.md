@@ -57,8 +57,10 @@ in `# form: literal`. The rest is checked by hand at review, like § Prose.
   # before, 22-virtualization.sh
   ! rpm -q "$pkg" > /dev/null || die "$pkg was pulled in (the image keeps binfmt out)"
   # after
-  if rpm -q "$package" > /dev/null; then
-      fail_build "$package was pulled in (the image keeps binfmt out)"
+  if rpm -q "$package" > /dev/null 2>&1; then
+      echo "FAIL: $package installed (the image keeps binfmt out)"
+  else
+      echo "OK: $package absent"
   fi
   ```
 
@@ -209,9 +211,9 @@ in `# form: literal`. The rest is checked by hand at review, like § Prose.
 - **A comment says what the code cannot.** The contract of a function when its name does not
   carry it (empty when…, status 0 when…), or the reason for a choice the reader would otherwise
   question. A comment that restates the name or the next line is deleted; a function whose name
-  and arguments say it all has none. The history behind a choice (dates, versions,
-  measurements, the bug that forced it) lives in `docs/gotchas.md` and the comment points at
-  its heading.
+  and arguments say it all has none. The history behind a choice (dates, versions, measurements,
+  the bug that forced it) lives in `docs/gotchas.md`; the comment keeps the reason in its own
+  words and names no file of the repository's docs.
 
   ```bash
   # before (a measurement in the comment)
@@ -251,7 +253,7 @@ in `# form: literal`. The rest is checked by hand at review, like § Prose.
   # after, describe_what_the_run_changed and abort_declined_step
   next="reboot into it, or rpm-ostree cleanup -p, then apply again"
   …
-  echo "what the run changed stands ($changed): $next"
+  echo "what the run changed stands (${changed#, }): $next"
   …
   abort "step $step not confirmed; $(describe_what_the_run_changed)"
   ```
@@ -276,6 +278,8 @@ known-bad still red after it. The rules above add to the earlier bullets of this
   build modified; any other added file left enabled; and an enabled set, as `dnf5 repolist`
   reports it, that differs from the base's. It reads the snapshots `00-prep.sh` recorded, so a
   file under a name nobody listed is caught too.
+- A dnf5 call that reaches a mirror goes through `dnf_retry` of `lib/repos.sh`, which
+  `install_from_repo` uses too: one failed request would otherwise fail a flavour's build.
 - The enablement lives in the `.repo` file, never in `dnf5 config-manager setopt`. `setopt`
   writes to an override file under `/etc/dnf/repos.override.d/` and leaves the repository file
   untouched (`man dnf5-config-manager`), so the state would sit in a file the gate's byte

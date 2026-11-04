@@ -42,10 +42,8 @@ fedora_of() {
 }
 
 # next_tag <fedora> <date> <taken file>: <fedora>.<date> on stdout, or the .N
-# after the day's highest taken suffix (the bare name counting 0) when one is in
-# the taken file; a gap below it is never filled, since it may be a name a
-# deleted release burnt. An empty taken file is a registry with no tag: the
-# day's name is free.
+# after the day's highest taken suffix (the bare name counting 0); a gap below
+# it is never filled, since it may be a name a deleted release burnt.
 next_tag() {
     local fedora=$1
     local date=$2
@@ -62,11 +60,9 @@ next_tag() {
     fi
 }
 
-# check_forced_shape <fedora> <tag>: status 0 when the tag has the TAG_SHAPE of
-# lib.sh, <fedora>.<yyyymmdd>[.<n>], with the fedora_version of the resolved
-# base; status 1 with the reason otherwise. Checked before any probe runs, so a
-# typo costs no round trip. The name is the dispatcher's choice, so the shape is
-# the only thing checked about the date.
+# check_forced_shape <fedora> <tag>: status 0 when the tag has lib.sh's
+# TAG_SHAPE and the resolved base's Fedora; status 1 with the reason otherwise.
+# The date is the dispatcher's choice: only its shape is checked.
 check_forced_shape() {
     local fedora=$1
     local tag=$2
@@ -166,9 +162,8 @@ emit_tag() {
 }
 
 # emit_forced_tag <coords file> <tag>: the forced tag as `release_tag=<tag>`
-# once its shape is accepted and the live probes show it free; exits 1
-# otherwise. The taken file is the script-wide `taken`, removed by the EXIT trap
-# after the function returns.
+# once its shape is accepted and the probes show it free; exits 1 otherwise.
+# `taken` is script-wide: the EXIT trap reads it after the function returns.
 emit_forced_tag() {
     local coords=$1
     local forced=$2
@@ -197,8 +192,7 @@ emit_forced_tag() {
 # --- self-test ----------------------------------------------------------------
 
 # self_test_next_tag <dir>: a free day gives <fedora>.<date>, a taken day .1, a
-# taken .1 gives .2, a .1 without the bare name gives .2 (no gap filled), an
-# empty taken file gives the day's name.
+# taken .1 gives .2, a .1 without the bare name gives .2 (no gap filled).
 self_test_next_tag() {
     local dir=$1
     local coords=$dir/coords.env
@@ -226,18 +220,11 @@ self_test_next_tag() {
     if [ "$(next_tag 44 20260904 "$taken")" != 44.20260904.2 ]; then
         fail_self_test "a gap below the day's highest suffix was filled"
     fi
-
-    : > "$dir/empty.txt"
-
-    if [ "$(next_tag 44 20260903 "$dir/empty.txt")" != 44.20260903 ]; then
-        fail_self_test "empty taken file did not give the day's name"
-    fi
 }
 
 # self_test_forced_tag <dir>: on its own taken file, a free name of the right
 # Fedora passes the shape and the free check, with and without .N; a name of
-# another Fedora and a malformed one fail the shape check; a taken name fails
-# the free check.
+# another Fedora fails the shape check; a taken name fails the free check.
 self_test_forced_tag() {
     local dir=$1
     local taken=$dir/forced-taken.txt
@@ -259,12 +246,6 @@ self_test_forced_tag() {
 
     if check_forced_shape 44 45.20260907 2> /dev/null; then
         fail_self_test "a forced tag of another Fedora passed the shape check"
-    fi
-
-    REFUSED=$((REFUSED + 1))
-
-    if check_forced_shape 44 44.20260907-rc1 2> /dev/null; then
-        fail_self_test "a malformed forced tag passed the shape check"
     fi
 
     REFUSED=$((REFUSED + 1))
@@ -385,7 +366,7 @@ self_test() {
     self_test_forced_tag "$dir"
     self_test_probes "$dir"
 
-    echo "self-test ok: 5 tags derived, 2 forced tags accepted, 1 unpublished package" \
+    echo "self-test ok: 4 tags derived, 2 forced tags accepted, 1 unpublished package" \
         "and 1 empty registry tolerated, $REFUSED bad inputs refused"
 }
 

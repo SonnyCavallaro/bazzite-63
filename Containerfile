@@ -46,7 +46,7 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --network=none \
     /ctx/build_files/tests/run.sh
 
-# The last gate, offline (docs/architecture.md § Gates, in order).
+# The last gate, offline.
 RUN --mount=type=tmpfs,target=/run \
     --network=none \
     rpm -V --nomtime python3-setuptools \

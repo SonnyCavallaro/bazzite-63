@@ -70,9 +70,8 @@ parse_args() {
     fi
 }
 
-# set_output_names <flavour>: the coords, the labels, the log and the tag, each
-# named after the flavour's own image, so a pre-flight of one flavour never
-# overwrites another's log nor re-tags its image.
+# set_output_names <flavour>: named after the flavour's image, so one flavour's
+# pre-flight never overwrites another's log nor re-tags its image.
 set_output_names() {
     local image
 
@@ -86,10 +85,9 @@ set_output_names() {
 # --- the verdict on the log ---------------------------------------------------
 
 # judge_log <log>: status 0 with `build ok: …` when the build exited 0 and the
-# log carries the scripts' own closing lines and no `FAIL:` line. buildah keys a
-# RUN on its command string, never on a bind mount's content, so a cached run
-# exits 0 without running anything: the proof that the scripts ran is their
-# output, and a log without it is refused as a cached build.
+# log carries the scripts' closing lines and no `FAIL:` line; a log without them
+# is a cached build, and a local pre-flight can exit 0 without running a changed
+# build script.
 judge_log() {
     local log=$1
     local status scripts_ran tests_passed fail_lines
@@ -166,8 +164,7 @@ run_build() {
 
     mapfile -t label_args < <(sed 's/^/--label=/' "$LABELS_FILE")
 
-    # The build's exit status is read from PIPESTATUS, not tee's, and a failed
-    # build must reach the BUILD_EXIT line instead of stopping the script here.
+    # A failed build must still reach the BUILD_EXIT line.
     set +e
     podman build "${build_args[@]}" \
         --build-arg BASE_IMAGE="$base_image" \
