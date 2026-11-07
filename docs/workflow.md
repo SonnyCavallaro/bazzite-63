@@ -58,8 +58,8 @@ the image `localhost/bazzite-63:preflight`. The probe and one smoke test by hand
 it stamped:
 
 ```bash
-# probe a built image: labels, /run and /tmp, lint, packages, the base's modules, the route of
-# the type ntfs, image-info.json
+# probe a built image: labels, /run and /tmp, the mtimes, lint, packages, the base's modules,
+# the route of the type ntfs, image-info.json
 ./.github/scripts/check-image.sh localhost/bazzite-63:preflight /var/tmp/bazzite-63-labels.txt
 # one smoke test in the built image the way the build runs it, the tree mounted at /ctx
 podman run --rm --network=none -v "$PWD:/ctx:ro,z" --tmpfs /run --tmpfs /tmp --tmpfs /var/log \
@@ -71,7 +71,7 @@ podman run --rm --network=none -v "$PWD:/ctx:ro,z" --tmpfs /run --tmpfs /tmp --t
 
 ```
 release.yml   workflow_dispatch: reason (becomes the run name), promote_stable (default false),
-              release_tag (default empty)
+              release_tag (default empty), handwritten (default empty)
   version     skopeo login, resolve-base.sh bazzite-mx -> release-tag.sh
               -> release_tag <fedora>.<yyyymmdd>, with .N one past the day's highest suffix
               when the GHCR package or a GitHub Release already carries that day's name or
@@ -81,12 +81,14 @@ release.yml   workflow_dispatch: reason (becomes the run name), promote_stable (
               the base's and the same probes show it free (release-tag.sh --tag)
               -> resolve-base.sh --digests: the base read once, base_digest_bazzite_mx
   build       reusable-build.yml with release_tag, rechunk and publish, one job:
-                verify-base.sh -> build -> check-image.sh -> compose the chunked image
+                verify-base.sh -> build -> check-image.sh --no-probe -> chunk it with chunkah
                 -> check-image.sh again -> prove the signing key
-                -> SBOM (syft) -> push :staging -> digest from --digestfile -> cosign sign by
-                digest -> SBOM attached as a referrer with oras and signed
-                -> actions/attest (the GitHub store, not the registry)
+                -> SBOM (syft on a buildah mount) -> packages-bazzite-63.json from it
+                (changelog.sh packages), uploaded as an artifact -> push :staging -> digest
+                from --digestfile -> cosign sign by digest -> SBOM attached as a referrer
+                with oras and signed -> actions/attest (the GitHub store, not the registry)
                 -> release-bazzite-mx.env uploaded as an artifact
+                -> the image's size and df -h in the job's step summary, on every profile
   gate        gate-release.sh release on the env file, image by digest:
                 labels (title, vendor, version = release_tag, revision = the run's commit)
                 -> the base the version job resolved, the one the build wrote in its env file
@@ -96,10 +98,12 @@ release.yml   workflow_dispatch: reason (becomes the run name), promote_stable (
                 and gh attestation verify --repo SonnyCavallaro/bazzite-63 -> skopeo copy
                 --preserve-digests onto :<tag>, refused when :<tag> already points elsewhere
                 -> :stable, only with promote_stable AND vars.PROMOTE_STABLE
-  release     changelog.sh (the sections of Bazzite's changelog.py: major packages from the
-              SBOMs, commits since the previous release's revision, then All Images, one
-              package per new version, and how to rebase, through ujust migrate apply)
-              -> gh release create --latest
+  release     changelog.sh (the sections of Bazzite's changelog.py: the handwritten text or the
+              generated line, major packages from the build job's packages file and the
+              previous release's packages.json, the SBOMs when either is missing, commits since
+              the previous release's revision, then All Images, one package per new version,
+              and how to rebase, through ujust migrate)
+              -> softprops/action-gh-release, latest, packages.json attached for the next release
 ```
 
 Dispatch:
@@ -116,6 +120,15 @@ a name a package or a release carries:
 ```bash
 gh workflow run release.yml --repo SonnyCavallaro/bazzite-63 --ref main -f reason=manual \
   -f release_tag='44.YYYYMMDD.N'
+```
+
+`handwritten` puts a small changelog of your own at the top of the release notes, in place of
+the generated `This is an automatically generated changelog for release …` line, as
+`ublue-os/bazzite`'s `handwritten` input does for its `changelog.py`:
+
+```bash
+gh workflow run release.yml --repo SonnyCavallaro/bazzite-63 --ref main -f reason=manual \
+  -f handwritten='What changed, in a sentence or two.'
 ```
 
 With `promote_stable` off, or the repository variable `PROMOTE_STABLE` not `true`, the job
@@ -221,13 +234,13 @@ refreshes them by hand:
 Every lookup goes through `gh api`, which wants a login (`gh auth login` or `GH_TOKEN`) even
 for public data: without one every row reads `UNKNOWN`.
 
-| Class      | Item                                                             | Verdicts                    |
-| ---------- | ---------------------------------------------------------------- | --------------------------- |
-| `action`   | each `uses: owner/repo[/path]@<sha> # <version>`                 | `OK`, `STALE`, `UNKNOWN`    |
-| `binary`   | `cosign-release`, `syft-version`, `ORAS_VERSION`                 | `OK`, `STALE`, `UNKNOWN`    |
-| `runner`   | each `runs-on:` label against the `actions/runner-images` README | `OK`, `STALE`, `UNKNOWN`    |
-| `workflow` | the state of every workflow of the repository                    | `OK`, `DISABLED`, `UNKNOWN` |
-| `issue`    | every `owner/repo#N` cited in a workflow comment                 | `OK`, `CLOSED`, `UNKNOWN`   |
+| Class      | Item                                                                | Verdicts                    |
+| ---------- | ------------------------------------------------------------------- | --------------------------- |
+| `action`   | each `uses: owner/repo[/path]@<sha> # <version>`                    | `OK`, `STALE`, `UNKNOWN`    |
+| `binary`   | `cosign-release`, `syft-version`, `CHUNKAH_VERSION`                 | `OK`, `STALE`, `UNKNOWN`    |
+| `runner`   | each `runs-on:` label against the `actions/runner-images` README    | `OK`, `STALE`, `UNKNOWN`    |
+| `workflow` | the state of every workflow of the repository                       | `OK`, `DISABLED`, `UNKNOWN` |
+| `issue`    | every `owner/repo#N` cited in a workflow comment                    | `OK`, `CLOSED`, `UNKNOWN`   |
 
 `UNKNOWN` means the answer the row needed was not readable (no release for an `action` or a
 `binary`, no runner README, no workflow list, no issue) and is never taken for `OK`. `--apply`
@@ -239,9 +252,11 @@ what moves with it: the `fedora:44` of the lint (`build.yml`, `lint-edit.sh`, `.
 and of the docs that name it, the `CI_SHFMT_MINOR` of `lint-edit.sh` and the `44.` of the tag
 examples.
 
-The `cosign-release` row is the one a bump is read before applying. The pin is v3.1.4: v3.1.3
-deprecated `--new-bundle-format`, and the signatures a host verifies are the layout that flag
-turns off ([`gotchas.md`](gotchas.md) § cosign 3.1.3 deprecates the flag the signature layout
-needs); v3.1.4 also deprecates `--use-signing-config`, which every sign step passes
-(sigstore/cosign#5056 in its release notes). The row goes `OK` to `STALE` on the version that
-removes either like any other.
+Four rows stay `STALE` on purpose, at the values Bazzite's `.github/workflows/build.yml` and
+`build.py` pin: `syft-version`, `cosign-release`, `CHUNKAH_VERSION` and the
+`sigstore/cosign-installer` action. After an `--apply`, put them back to Bazzite's values. A
+`cosign-release` bump is also read before it lands: v3.1.3 already deprecates
+`--new-bundle-format`, and the signatures a host verifies are the layout that flag turned off
+([`gotchas.md`](gotchas.md) § cosign 3.1.3 deprecates the flag the signature layout needs), and
+v3.1.4 deprecates `--use-signing-config`, which every sign step passes (sigstore/cosign#5056 in
+its release notes).

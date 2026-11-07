@@ -2,11 +2,10 @@
 # Smoke test of 41-chrome.sh: the package and its key, the repository read
 # through the vendored key, the self-updating machinery off, the payload under
 # /usr/lib/opt with its boot link, Chrome the default browser beside the base's
-# own entries, its Flatpak denied, and bazzite-mx's helpers reporting and
-# copying a Chrome Flatpak's profile, with no Firefox item left there or in
-# verify-host's help; verify-host, which has no self-test, still parses and
-# ends on its main call, and its check and migrate's step 8, each run alone,
-# tell a Chrome Flatpak from none (migrate's self-test runs in test 12).
+# own entries, its Flatpak denied, and bazzite-mx's helpers reporting a Chrome
+# Flatpak, with no Firefox item left in verify-host or its help; verify-host,
+# which has no self-test, still parses and ends on its main call, and its
+# check, run alone, tells a Chrome Flatpak from none.
 #
 # Usage: run by tests/run.sh inside the image (offline, on the cleaned tree).
 # Output: one `OK: <what>` or `FAIL: <what>` line per check, on stdout.
@@ -21,7 +20,6 @@ TMPFILES_CONF=/usr/lib/tmpfiles.d/bazzite-63-opt.conf
 MIMEAPPS=/etc/xdg/mimeapps.list
 FLATPAK_BLOCKLIST=/usr/share/ublue-os/flatpak-blocklist
 VERIFY_HOST=/usr/libexec/bazzite-mx-verify-host
-MIGRATE=/usr/libexec/bazzite-mx-migrate
 BASE_RECIPES=/usr/share/ublue-os/just/95-bazzite-mx.just
 
 check_self_updating_off() {
@@ -94,17 +92,6 @@ run_verify_host_check() {
         check_flatpaks" 2>&1 || true
 }
 
-# Migrate's step 8 run alone on a Flatpak list, nothing queued or backed up.
-run_migrate_step_8() {
-    local body
-
-    body=$(sed -n '/^print_step_8_what_stays_with_the_user() {$/,/^}$/p' "$MIGRATE")
-    bash -c "src_flatpaks() { echo $1; }
-        DEPLOYMENT_QUEUED=0 FSTAB_REWRITTEN=0 BACKUP=
-        $body
-        print_step_8_what_stays_with_the_user" 2>&1 || true
-}
-
 check_verify_host_flatpaks() {
     local with without
 
@@ -112,20 +99,18 @@ check_verify_host_flatpaks() {
     without=$(run_verify_host_check org.mozilla.firefox)
 
     if [[ $with == "INFO: the Chrome Flatpak is still installed next to the RPM"* ]] \
-        && [ "$without" = "OK: no Chrome Flatpak (the RPM is the image's browser)" ] \
-        && grep -q '^  - Chrome: ' <<< "$(run_migrate_step_8 com.google.Chrome)" \
-        && ! grep -q '^  - Chrome: ' <<< "$(run_migrate_step_8 org.mozilla.firefox)"; then
-        echo "OK: verify-host reports a Chrome Flatpak, migrate's step 8 lists it, both only then"
+        && [ "$without" = "OK: no Chrome Flatpak (the RPM is the image's browser)" ]; then
+        echo "OK: verify-host reports a Chrome Flatpak, only then"
     else
-        echo "FAIL: verify-host or step 8 on a Chrome Flatpak: $(on_one_line none <<< "$with")"
+        echo "FAIL: verify-host on a Chrome Flatpak: $(on_one_line none <<< "$with")"
     fi
 }
 
 check_helpers() {
     if bash -n "$VERIFY_HOST" 2> /dev/null \
         && [ "$(tail -n1 "$VERIFY_HOST")" = 'main "$@"' ] \
-        && ! grep -qiE 'firefox|mozilla' "$VERIFY_HOST" "$MIGRATE" "$BASE_RECIPES"; then
-        echo "OK: verify-host parses and ends on main, no Firefox item in the helpers or help"
+        && ! grep -qiE 'firefox|mozilla' "$VERIFY_HOST" "$BASE_RECIPES"; then
+        echo "OK: verify-host parses and ends on main, no Firefox item in verify-host or its help"
     else
         echo "FAIL: verify-host does not parse, or a helper or its help still has a Firefox item"
     fi

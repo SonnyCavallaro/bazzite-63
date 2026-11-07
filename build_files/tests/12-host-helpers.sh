@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Smoke test of 12-host-helpers.sh: the helpers name this image's scope and
 # registries.d file, not bazzite-mx's, and migrate's self-test, which drives
-# host.sh through its plan and apply on fixture hosts, still passes on the
-# renamed code.
+# host.sh on fixture hosts, still passes on the renamed code.
 #
 # Usage: run by tests/run.sh inside the image (offline, on the cleaned tree).
 # Output: one `OK: <what>` or `FAIL: <what>` line per check, on stdout.

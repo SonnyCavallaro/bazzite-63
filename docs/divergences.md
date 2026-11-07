@@ -97,9 +97,9 @@ at `/usr/share/ublue-os/flatpak-blocklist` with `flatpak remote-modify --filter`
 version or the image name changes, as the rebase onto this image does
 (flatpak-remote-modify(1)); a host that already has the Flatpak keeps it. `41-chrome.sh` also
 turns bazzite-mx's helpers from Firefox to Chrome: `verify-host`'s `check_flatpaks` reports a
-Chrome Flatpak beside the RPM as an `INFO:` line with the profile copy, and `migrate`'s step 8
-prints that copy, from `~/.var/app/com.google.Chrome/config/google-chrome` to
-`~/.config/google-chrome`, while the Flatpak is installed; `verify-host`'s help in
+Chrome Flatpak beside the RPM as an `INFO:` line with the profile copy, from
+`~/.var/app/com.google.Chrome/config/google-chrome` to `~/.config/google-chrome`, while the
+Flatpak is installed; `verify-host`'s help in
 `95-bazzite-mx.just` names the Chrome Flatpak. Each edit first requires its anchor exactly
 once.
 
@@ -131,7 +131,7 @@ recipes, and refuses a name defined twice ([`conventions.md`](conventions.md) §
 
 `tn5250` is a system RPM from Fedora's own repositories: `tn5250` and `xt5250`, the 5250
 terminals for IBM i, with `xt5250.desktop`. A host that layered it keeps it through
-`ujust migrate`, whose step 3 runs `rpm-ostree uninstall --all` and drops every layered request
+`ujust migrate`, which runs `rpm-ostree uninstall --all` and drops every layered request
 (bazzite-mx's
 [`docs/migration.md`](https://github.com/MatrixDJ96/bazzite-mx/blob/main/docs/migration.md) §
 The recipe): with the package in the image, the request it removes is already satisfied.
@@ -185,7 +185,7 @@ stamp `~/.config/bazzite-63-segoe-ui-variable.done` ends the retries.
 bazzite-mx's `ujust migrate` and `ujust verify-host` cover the system half
 ([`docs/migration.md`](https://github.com/MatrixDJ96/bazzite-mx/blob/main/docs/migration.md)):
 the origin, the signing trust, the layered packages. What each user still has to do on this
-image is the user half. `ujust setup-b63` gives it the same shape, through
+image is the user half. `ujust setup-b63` runs it through
 `/usr/libexec/bazzite-63-setup`, not as root; without an action a menu asks, `status` first, as
 `setup-dev` does:
 

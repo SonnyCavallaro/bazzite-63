@@ -20,8 +20,7 @@ alike reach the image once through the unsigned transport. Secure Boot has to be
 ```bash
 sudo rpm-ostree rebase ostree-unverified-registry:ghcr.io/sonnycavallaro/bazzite-63:stable
 systemctl reboot
-ujust migrate                 # plan: read-only, prints what apply would do
-ujust migrate apply           # every change but step 2 asks first; TAG defaults to stable
+ujust migrate                 # lists the changes, asks once, makes them; TAG defaults to stable
 systemctl reboot
 ujust verify-host
 ujust setup-b63 plan          # the user half: read-only, prints what apply would do
@@ -33,9 +32,9 @@ ujust setup-b63 status        # one line per check of the user half
 has put the host on the signed origin
 ([`divergences.md`](divergences.md) § The user half of a host).
 
-A bazzite-mx host has already been through bazzite-mx's own migration, so `migrate apply` on it
+A bazzite-mx host has already been through bazzite-mx's own migration, so `migrate` on it
 mostly rebases onto the signed transport: no layered package, `fstab` row or residue is left to
-clean. A Bazzite host gets every step, and the `fstab` and local-RPM cautions of bazzite-mx's
+clean. A Bazzite host gets every change, and the `fstab` and local-RPM cautions of bazzite-mx's
 § The first rebase goes through the unsigned transport apply before the rebase above.
 
 ## What differs from bazzite-mx's procedure
@@ -50,8 +49,7 @@ clean. A Bazzite host gets every step, and the `fstab` and local-RPM cautions of
 - Chrome is the browser and Firefox leaves the image ([`divergences.md`](divergences.md) §
   Google Chrome, the default browser). `verify-host` prints
   `OK: no Chrome Flatpak (the RPM is the image's browser)`, or an `INFO:` line with the profile
-  copy while a Chrome Flatpak is installed beside the RPM, and `migrate`'s step 8 prints the
-  same copy. On a host coming from bazzite-mx the Firefox RPM's profile stays in `~/.mozilla`
+  copy while a Chrome Flatpak is installed beside the RPM. On a host coming from bazzite-mx the Firefox RPM's profile stays in `~/.mozilla`
   or `~/.config/mozilla`; to keep Firefox, install its Flatpak
   (`flatpak install flathub org.mozilla.firefox`) and copy the profile over before its first
   start:

@@ -151,15 +151,14 @@ in `# form: literal`. The rest is checked by hand at review, like § Prose.
   commands after, `main` last.
 
   ```bash
-  # before: the steps of step_6_fstab_ntfs_errors run on as one block
+  # before: the steps of rewrite_fstab run on as one block
   # after, bazzite-mx-migrate
-      local rewritten rows_left
+      local rewritten added
 
-      if [ -z "$NTFS_ROWS" ]; then
-          return 0
-      fi
+      rewritten=$(mktemp)
+      add_ntfs_errors_option /etc/fstab "$rewritten"
 
-      echo "step 6: ntfs rows of fstab without an errors= option:"
+      if ! fstab_verify_answers /etc/fstab || ! fstab_verify_answers "$rewritten"; then
   ```
 
 - **A line stops at 100 columns.** A long command breaks after `\` with one argument per line;
@@ -236,26 +235,21 @@ in `# form: literal`. The rest is checked by hand at review, like § Prose.
   # before: one self_test holding every fixture and assertion inline
   # after, bazzite-mx-migrate: self_test calls checks named for what they prove
   self_test_fstab_rewrite "$dir"
-  self_test_fstab_verify_compares_errors "$dir"
-  self_test_write_refuses "$dir"
-  …
-  self_test_plan_lists_the_steps "$dir/fx"
-  …
-  self_test_unconfirmed_steps_change_nothing "$dir"
+  self_test_fstab_verify "$dir"
+  self_test_detection "$dir"
+  self_test_changes "$dir"
+  self_test_gates "$dir"
   ```
 
 - **Output to the user is a complete sentence**: what happened, and for a failure what to do
   next. The prefixes a contract reads (`OK:`, `FAIL:`, `ERROR:`, `self-test ok`) stay.
 
   ```bash
-  # before, bazzite-mx-migrate
-  abort "step 5 not confirmed; the pending deployment keeps the changes made so far"
-  # after, describe_what_the_run_changed and abort_declined_step
-  next="reboot into it, or rpm-ostree cleanup -p, then apply again"
-  …
-  echo "what the run changed stands (${changed#, }): $next"
-  …
-  abort "step $step not confirmed; $(describe_what_the_run_changed)"
+  # before
+  abort "pending deployment"
+  # after, bazzite-mx-migrate
+  abort "a deployment waits for the next boot ($PENDING)." \
+      "Reboot, or discard it with sudo rpm-ostree cleanup -p, then run ujust migrate again."
   ```
 
 A rewrite for form proves behaviour unchanged: the same arguments, the same exit status, the
@@ -280,6 +274,9 @@ known-bad still red after it. The rules above add to the earlier bullets of this
   file under a name nobody listed is caught too.
 - A dnf5 call that reaches a mirror goes through `dnf_retry` of `lib/repos.sh`, which
   `install_from_repo` uses too: one failed request would otherwise fail a flavour's build.
+  An unreachable repository fails the build unless its own file says `skip_if_unavailable=True`
+  ([`gotchas.md`](gotchas.md) § A repository's own `skip_if_unavailable=True` beats the main
+  setting).
 - The enablement lives in the `.repo` file, never in `dnf5 config-manager setopt`. `setopt`
   writes to an override file under `/etc/dnf/repos.override.d/` and leaves the repository file
   untouched (`man dnf5-config-manager`), so the state would sit in a file the gate's byte
@@ -451,9 +448,9 @@ Where each one runs:
   input (`rechunk`, then `publish`), never a second copy of the steps.
 - Every check CI runs on an image is a script under `.github/scripts/` with a `--self-test` the
   `lint` job runs; the workflow calls the script and does not restate the checks.
-- One labels file per build (`image-labels.sh`), passed to `podman build` and again to the
-  chunked compose: a composed image inherits no config, and a `podman build` without labels
-  keeps the base's ([`gotchas.md`](gotchas.md) § `podman build` keeps the base's labels).
+- One labels file per build (`image-labels.sh`), passed to `podman build` and again to chunkah
+  with the built image's config: a `podman build` without labels keeps the base's
+  ([`gotchas.md`](gotchas.md) § `podman build` keeps the base's labels).
 - Values an expression computes reach a step through `env:`, never inline in `run:`: an input or
   a label carrying a quote would break the script (GitHub docs, "Secure use reference", "Use an
   intermediate environment variable").
@@ -479,10 +476,10 @@ Where each one runs:
   tags that move: `:staging` at every release run's push, `:stable` only through the gate or
   `promote.yml`.
 - Binaries the workflows install take their version from an input or an env var
-  (`cosign-release`, `syft-version`, `ORAS_VERSION`), never "latest", and `refresh-pins.sh`
-  reads exactly those three names.
-- Retries are loops in the step or the tool's own flag (`skopeo inspect --retry-times 3`),
-  never an action: one pin fewer for a `for` loop.
+  (`cosign-release`, `syft-version`, `CHUNKAH_VERSION`), never "latest", and `refresh-pins.sh`
+  reads exactly those three names; ORAS is the default of the pinned `setup-oras`, as in Bazzite.
+- A retry is the tool's own flag (`skopeo inspect --retry-times 3`), a loop in a script, or
+  `nick-fields/retry` on the push to GHCR, where Bazzite uses it.
 - A cron's minute sits off `:00`, because the `schedule` event is delayed at the start of every
   hour (GitHub docs). A scheduled workflow never publishes on its own: it dispatches
   `release.yml`, which keeps its single trigger and puts the reason in its run name. A scheduled

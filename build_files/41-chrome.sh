@@ -4,8 +4,8 @@
 # self-updating machinery stays off: on an image dnf never updates it, and
 # its repository entry and daily cron would only re-enable a repository.
 # Chrome's Flatpak is denied the way bazzite-mx denies Firefox's beside its
-# RPM, and bazzite-mx's helpers, which report and copy a Firefox Flatpak
-# profile, do so for Chrome's.
+# RPM, and bazzite-mx's helpers, which report a Firefox Flatpak, report
+# Chrome's; verify-host's INFO line carries the profile copy.
 #
 # Usage: run by build.sh after 12-host-helpers.sh; no arguments.
 # Writes: /etc/default/google-chrome, read by the RPM's %post and its cron;
@@ -14,8 +14,8 @@
 #   the vendored google-chrome.repo put back after the %post; Chrome as the
 #   web browser in /etc/xdg/mimeapps.list, on a fresh inode; the line
 #   `deny com.google.Chrome/*` in the Flatpak filter; bazzite-mx-verify-host's
-#   Flatpak check, migrate's step 8 item and verify-host's help line in
-#   95-bazzite-mx.just turned from Firefox to Chrome, each on a fresh inode.
+#   Flatpak check and verify-host's help line in 95-bazzite-mx.just turned
+#   from Firefox to Chrome, each on a fresh inode.
 # Exit status: 0 done; the build stops on a `FAIL: …` line.
 
 # shellcheck source=lib/env.sh
@@ -32,11 +32,6 @@ BROWSER_TYPES=(x-scheme-handler/http x-scheme-handler/https text/html applicatio
 FLATPAK_BLOCKLIST=/usr/share/ublue-os/flatpak-blocklist
 DENY_LINE='deny com.google.Chrome/*'
 VERIFY_HOST=/usr/libexec/bazzite-mx-verify-host
-MIGRATE=/usr/libexec/bazzite-mx-migrate
-STEP_8_PLAN='    echo "  8. print what is left: Firefox profile copy, reboot, rollback,'
-STEP_8_PLAN+=' where they apply"'
-STEP_8_COMMENT='# Each item only when it applies: the Firefox copy while a Firefox Flatpak is'
-STEP_8_FIREFOX='    if ! flatpaks=$(src_flatpaks 2> /dev/null) \'
 VERIFY_HOST_HEADER='# of fstab right and mounted, no residue of an earlier setup, the Firefox'
 VERIFY_HOST_COMMENT='# Nothing is required by the image; Firefox is reported.'
 BASE_RECIPES=/usr/share/ublue-os/just/95-bazzite-mx.just
@@ -163,38 +158,6 @@ EOF
     mv -f "$VERIFY_HOST.new" "$VERIFY_HOST"
 }
 
-# The Firefox block of step 8, from its `if` to the first `    fi` after it,
-# gives way to the same copy for Chrome's profile.
-mirror_migrate_item() {
-    local replacement=$BUILD_TMP/step_8_chrome
-
-    if ! holds_once "$MIGRATE" "$STEP_8_PLAN" || ! holds_once "$MIGRATE" "$STEP_8_FIREFOX" \
-        || ! holds_once "$MIGRATE" "$STEP_8_COMMENT"; then
-        fail_build "$MIGRATE: the Firefox item of step 8 not found exactly once"
-    fi
-
-    cat > "$replacement" << 'EOF'
-    if ! flatpaks=$(src_flatpaks 2> /dev/null) \
-        || grep -qx com.google.Chrome <<< "$flatpaks"; then
-        echo "  - Chrome: the image's RPM reads ~/.config/google-chrome; copy the Flatpak"
-        echo "    profile once, per user, BEFORE the first RPM start:"
-        echo "      [ -e ~/.config/google-chrome ] \\"
-        echo "          || [ ! -d ~/.var/app/com.google.Chrome/config/google-chrome ] \\"
-        echo "          || cp -a ~/.var/app/com.google.Chrome/config/google-chrome ~/.config/"
-        echo "    then, if wanted: flatpak uninstall com.google.Chrome"
-    fi
-EOF
-
-    awk -v plan="$STEP_8_PLAN" -v note="$STEP_8_COMMENT" -v start="$STEP_8_FIREFOX" \
-        -v body="$replacement" '
-        $0 == plan || $0 == note { gsub(/Firefox/, "Chrome"); print; next }
-        $0 == start { while ((getline line < body) > 0) print line; skip = 1; next }
-        skip && $0 == "    fi" { skip = 0; next }
-        !skip { print }' "$MIGRATE" > "$MIGRATE.new"
-    chmod --reference="$MIGRATE" "$MIGRATE.new"
-    mv -f "$MIGRATE.new" "$MIGRATE"
-}
-
 mirror_verify_host_help() {
     if ! holds_once "$BASE_RECIPES" "$VERIFY_HOST_HELP"; then
         fail_build "$BASE_RECIPES: verify-host's help line not found exactly once"
@@ -212,7 +175,6 @@ relocate_payload
 set_default_browser
 deny_chrome_flatpak
 mirror_verify_host_check
-mirror_migrate_item
 mirror_verify_host_help
 
 log "chrome: $(rpm -q --qf '%{VERSION}' google-chrome-stable), the default web browser"

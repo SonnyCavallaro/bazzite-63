@@ -7,13 +7,14 @@ when it was measured, and what the repository does about it. The rules themselve
 
 Contents, in the order of the entries: torn writeback on 6.17-azure · just duplicate recipe ·
 ujust.sh readonly names · grep -v on an empty set · command | grep -q · podman build labels ·
-stub-resolv.conf left in the image · remove-unwanted-software v9 ·
-skopeo and containers-storage · workflow off the default branch · setup-oras versions ·
+stub-resolv.conf left in the image · remove-unwanted-software v9 · Fedora 45 out of disk ·
+skopeo and containers-storage · workflow off the default branch ·
 cosign verify and referrers · rollback onto a pruned tag · ghcr-cleanup-action patterns ·
 pre-flight without the changed script · SBOM media type · skel and existing accounts ·
 FAIL branch before its verdict · 2> /dev/null on a failed redirection ·
 recipe description line · cosign 3.1.3 bundle flag · arithmetic error escapes set -e ·
-scriptlet rewrote a .pyc · anonymous GHCR 403.
+scriptlet rewrote a .pyc · anonymous GHCR 403 · /etc stamped at a RUN's commit ·
+a repository's own skip_if_unavailable.
 
 ## Torn writeback on a 6.17-azure runner kernel
 
@@ -67,8 +68,10 @@ shape.
 
 Without `--label`, the new image carries every label of its `FROM`: a pre-flight image called
 itself `Bazzite`, vendor `Universal Blue`, revision the base's commit (measured 2026-09-02).
-`image-labels.sh` restates every label on every build, and the same file is passed again to
-`build-chunked-oci`, which inherits no config either.
+`image-labels.sh` restates every label it sets on every build, and the same file is passed again
+to chunkah beside the built image's config. The base's `quay.expires-after` and
+`rpmostree.inputhash` pass through and buildah stamps its own `io.buildah.version`, as
+`ghcr.io/ublue-os/bazzite:stable` carries them too (measured 2026-11-05).
 
 ## A networked RUN leaves `/run/systemd/resolve/stub-resolv.conf` in the image
 
@@ -86,15 +89,16 @@ mounted image instead.
 Its apt step runs `apt-get remove -y powershell --fix-missing` and the 26.04 runner image has
 no such package: `E: Unable to locate package powershell`, exit 100, the job dead before the
 build (measured 2026-09-02). The `df` the action prints first showed 92 GB free of 145 GB on
-that runner, enough then; the action is not used. On the Fedora 45 base bazzite-mx's
-`bazzite-nvidia-open` build died with `no space left on device` while committing the
-`build.sh` layer and passed on the rerun (2026-11-04), so the build job opens with
-`jlumbroso/free-disk-space` v2.0.0, the step `ublue-os/bazzite`'s `build.yml` runs on the same
-runner: in its run 41746267574 it saved 9.2 GiB, 88 GB free before and 97 GB after; in
-bazzite-mx's build, 27 GiB, with 108 GB free before the chunked pull. Its large-packages line
-`apt-get remove -y azure-cli google-chrome-stable firefox powershell mono-devel
-libgl1-mesa-dri` fails on the same missing `powershell` and leaves one warning annotation per
-job, kept so the step stays Bazzite's; the other categories still free their share.
+that runner, enough then; the action is not used.
+
+## The Fedora 45 build can run out of disk on `ubuntu-26.04`
+
+bazzite-mx's `bazzite-nvidia-open` build died with `no space left on device` while committing
+the `build.sh` layer and passed on the rerun (measured 2026-11-04), so the build job opens with
+`jlumbroso/free-disk-space` v2.0.0 on the options of `ublue-os/bazzite`'s `build.yml` (`android`,
+`large-packages` and `docker-images` off). bazzite-mx's job saved 9.2 GiB in 11 to 13 s with no
+warning annotation, left 81 to 82 GiB free before the chunked pull, and a 1 s `df` sampler saw
+47 to 52 GiB free at the lowest point of the job (main profile, measured 2026-11-05).
 
 ## `skopeo` cannot read `containers-storage:` in a runner job
 
@@ -114,16 +118,6 @@ the same way. Runs of such a workflow are read from the repository-wide endpoint
 `.path` (`watch-upstream.sh`), and a workflow is dispatched on a branch only once its file is
 on the default branch too.
 
-## `setup-oras` installs only the ORAS versions embedded in its own release
-
-`oras-project/setup-oras` v2.0.1 resolves `version` against a list shipped in the action,
-`src/lib/data/releases.json`, which runs from 1.0.0 to 1.3.3 (re-read 2026-09-06 at v2.0.1).
-Any other version fails with "official ORAS CLI releases does not contain version 1.3.4"
-(measured 2026-09-03, after the push and the signature of `:staging`). v2.0.2 added 1.3.4 on
-2026-09-29, 33 days after ORAS released it (read 2026-10-01). `install-oras.sh` installs from
-the ORAS release directly, the tarball refused unless its sha256 matches the release's
-checksums file.
-
 ## `cosign verify --key` reads a certificate-signed referrer before the `.sig`
 
 `ghcr.io/ublue-os/bazzite:stable` carries its legacy `.sig` tag, an SPDX SBOM and a SLSA
@@ -138,7 +132,7 @@ transport errors inconclusive.
 
 ## A rollback deployment whose origin tag was pruned from GHCR boots but never updates
 
-`ujust migrate apply <tag>` and a `bootc switch` onto a dated tag write that tag into the
+`ujust migrate <tag>` and a `bootc switch` onto a dated tag write that tag into the
 deployment's origin. Once `clean.yml` or a cleanup by id has removed the tag from the package,
 the deployment still boots, its commit being local, and `bootc upgrade` on it finds nothing to
 pull: the host reports the rollback as healthy and stale at the same time. Measured 2026-09-04
@@ -282,3 +276,29 @@ bazzite-mx's packages and a never-published name). `release-tag.sh` reads `name 
 package with no tag taken and any other failure as a failed probe, so the version job of
 `release.yml` logs in to GHCR before it resolves the tag: anonymously, a package not yet
 published would stop the run.
+
+## Committing a RUN that added entries under `/etc` stamps `/etc`
+
+A RUN from the base that installs a package (`dnf5 install cowsay`) and then sets every file
+under `/usr`, `/etc` and `/opt` to the epoch reads `/etc` at the epoch inside the RUN, yet the
+committed layer carries `/etc` (and `/`) at the moment of the commit; a RUN that only resets
+leaves `/etc` at the epoch (measured 2026-11-05, rootless podman 6.1.3, buildah 1.45.1). The
+build RUN ends with the reset of `95-clean-stage.sh` and so ships a stamped `/etc`, and every
+rpm query of a later RUN rewrites `rpmdb.sqlite-shm`: the last RUN of the Containerfile resets
+them again after `rpm -V`, as `ublue-os/bazzite` resets in `finalize.sh`, a RUN after
+`build.sh`'s, and `check-image.sh` refuses an image with a file off the epoch.
+
+## A repository's own `skip_if_unavailable=True` beats the main setting
+
+`skip_if_unavailable=False` in `[main]` of `dnf.conf`, written by `dnf5 config-manager setopt` or
+passed as `--setopt=skip_if_unavailable=False`, fails `dnf5 makecache` on an unreachable repository
+whose file does not set the option, and skips one whose file says `True`; only
+`--setopt='*.skip_if_unavailable=False'` fails both (measured 2026-11-05 on the Fedora 45 base, dnf5
+with a `127.0.0.1:9` baseurl, offline). The glob is not an option on this base: with it `dnf5
+makecache --refresh` fails on `updates-archive`, whose `repomd.xml` names a `primary.xml.zck` the
+server answers 404 for (`fedoraproject-updates-archive.fedoraproject.org/fedora/45/x86_64/`, same
+date). `00-prep.sh` therefore sets the main value, as `ublue-os/bazzite` does in
+`build_files/build.sh`, and the repositories whose files say `True` (Fedora's `updates-archive`
+and `fedora-cisco-openh264`, the base's COPRs and negativo17, bazzite-mx's `mise` and `sunshine`)
+are still skipped when unreachable; an install from one of them still fails on the missing
+package.

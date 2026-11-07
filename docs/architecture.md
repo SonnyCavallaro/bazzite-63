@@ -15,7 +15,7 @@ Containerfile
   image         FROM ${BASE_IMAGE}, bazzite-mx's :stable by digest, its signature verified before the build
     RUN /ctx/build_files/build.sh                  mounts: /var/cache and /var/log (cache), /run and /tmp (tmpfs)
     RUN /ctx/build_files/tests/run.sh              offline; tmpfs on /run, /tmp, /var/log, /var/cache
-    RUN rpm -V --nomtime python3-setuptools && bootc container lint …    offline; tmpfs on /run
+    RUN rpm -V --nomtime python3-setuptools && epoch pass && bootc container lint …    offline; tmpfs on /run
 ```
 
 Why `/run` is a tmpfs is on the `RUN` itself in the `Containerfile`.
@@ -39,11 +39,10 @@ Each script owns one artefact and ships a `--self-test`.
 | `resolve-base.sh <flavour> \| --digests`          | the base's digest, version and kernel, and the image name; the base digest keyed by flavour                                                                                                                                                          |
 | `verify-base.sh <base image>`                     | bazzite-mx's signature on the resolved digest, checked against `base-cosign.pub`; a tag refused                                                                                                                                                      |
 | `image-labels.sh <coords> <tag> <rev>`            | the labels file; the coordinates as `resolve-base.sh` wrote them                                                                                                                                                                                     |
-| `check-image.sh <image> <labels>`                 | the probe of a built image: labels, `/run` and `/tmp`, lint, packages, the base's modules, the route of the type `ntfs`, `image-info.json`                                                                                                           |
+| `check-image.sh <image> <labels>`                 | the probe of a built image: labels, `/run` and `/tmp`, the mtimes, lint, packages, the base's modules, the route of the type `ntfs`, `image-info.json`; `--no-probe` the first three alone                                                          |
 | `release-tag.sh <coords> \| --tag <tag> <coords>` | the release tag, `.N` one past the day's highest taken suffix, never a gap; a forced tag, refused when malformed, on another Fedora or taken                                                                                                         |
 | `gate-release.sh release\|promote`                | verify by digest, write `:<tag>`, promote `:stable`                                                                                                                                                                                                  |
-| `changelog.sh release`                            | the release notes and the release title                                                                                                                                                                                                              |
-| `install-oras.sh <version> <dir>`                 | the ORAS CLI, tarball refused on a checksum mismatch                                                                                                                                                                                                 |
+| `changelog.sh release\|packages`                  | the release notes, the release title and its `packages.json`; one image's packages file                                                                                                                                                              |
 | `refresh-pins.sh`                                 | the pin table (`--check`) and the rewrite (`--apply`)                                                                                                                                                                                                |
 | `check-commits.sh [<rev>]`                        | the commit-message rules (§ Commits of `conventions.md`) over every commit reachable from `<rev>`                                                                                                                                                    |
 | `check-form.sh <file>...`                         | the form rules (§ Bash → Form of `conventions.md`): line width, the banned control-flow shapes and the four failure shapes (`\| grep -q`, `\|\| echo` fallback, a pipeline assigned without `\|\| true`, a `$( )` inside `$(( ))`), on logical lines |
@@ -60,7 +59,7 @@ Each script owns one artefact and ships a `--self-test`.
 | `lib/repos.sh`          | `install_from_repo`, `enabled_repos`                                                                                                         |
 | `lib/just.sh`           | `recipe_set`; output captured before any grep                                                                                                 |
 | `lib/gpg.sh`            | the `KEY_FPR` table of this image's vendor keys, `key_fingerprint` and `assert_key_fingerprint`                                              |
-| `00-prep.sh`            | dnf keeps its cache and waits 60 s for COPR and mirrors; the base's repositories and the SHA-256 of its skel `profile.ps1` recorded          |
+| `00-prep.sh`            | dnf keeps its cache and waits 60 s for COPR and mirrors, fails on an unreachable repository; the base's repositories and the SHA-256 of its skel `profile.ps1` recorded |
 | `01-system-files.sh`    | `rsync` of `system_files/` over the tree, every file on a fresh inode                                                                        |
 | `10-image-info.sh`      | identity: `image-info.json`, os-release, the KDE About page                                                                                  |
 | `11-image-signing.sh`   | the public key and the `policy.json` scope for `ghcr.io/sonnycavallaro`, next to the base's                                                  |
@@ -115,9 +114,12 @@ its `verify-host` reads on every host, keeps naming Bazzite's repositories.
    repository, the enabled set read from `dnf5 repolist` itself, and no modified base
    repository.
 3. `tests/run.sh`: every feature's smoke test on the cleaned tree, offline.
-4. `rpm -V --nomtime python3-setuptools`, then `bootc container lint --fatal-warnings`: the
-   last word, offline; `rpm -V` sees a packaged `.pyc` the build or the test RUN rewrote
-   ([`gotchas.md`](gotchas.md) § A scriptlet rewrote a packaged `.pyc`).
+4. `rpm -V --nomtime python3-setuptools`, every file under `/usr`, `/etc` and `/opt` back at the
+   epoch, then `bootc container lint --fatal-warnings`: the last word, offline; `rpm -V` sees a
+   packaged `.pyc` the build or the test RUN rewrote ([`gotchas.md`](gotchas.md) § A scriptlet
+   rewrote a packaged `.pyc`), and the epoch pass undoes the `/etc` the build RUN's commit and
+   the rpmdb index `rpm -V` stamped
+   ([`gotchas.md`](gotchas.md) § Committing a RUN that added entries under `/etc` stamps `/etc`).
 
 Every gate is proven on a known-bad input before it counts ([`conventions.md`](conventions.md)
 § Positive control).

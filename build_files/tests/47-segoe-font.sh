@@ -59,9 +59,11 @@ check_no_font_baked() {
     fi
 }
 
-# run_installer <home> <url>: the installer as a login would run it.
+# run_installer <home> <url>: the installer as a login would run it, on the
+# fixture's fontconfig file, so root's fontconfig leaves the image's cache alone.
 run_installer() {
-    env -u XDG_CONFIG_HOME -u XDG_DATA_HOME HOME=$1 SEGOE_URL=$2 "$INSTALLER" 2>&1
+    env -u XDG_CONFIG_HOME -u XDG_DATA_HOME HOME=$1 SEGOE_URL=$2 \
+        FONTCONFIG_FILE="$(dirname "$1")/fonts.conf" "$INSTALLER" 2>&1
 }
 
 check_installer_retries() {
@@ -73,6 +75,14 @@ check_installer_retries() {
     cp "$STAND_IN_FONT" "$fixture/package/fonts/SegoeUI-VF.ttf"
     echo licence > "$fixture/package/EULA.txt"
     (cd "$fixture/package" && python3 -m zipfile -c ../segoe.zip fonts EULA.txt)
+    cat > "$fixture/fonts.conf" << EOF
+<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <dir prefix="xdg">fonts</dir>
+  <cachedir>$fixture/cache</cachedir>
+</fontconfig>
+EOF
 
     output=$(run_installer "$fixture/home" "file://$fixture/segoe.zip")
     output+=$'\n'$(run_installer "$fixture/away" "file://$fixture/missing.zip")

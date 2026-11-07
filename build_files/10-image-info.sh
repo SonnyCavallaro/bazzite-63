@@ -80,10 +80,15 @@ write_os_release() {
 }
 
 # The About page of Plasma's System Settings: the repository as the website
-# and the image as the variant.
+# and the image as the variant. `sed -i` writes a new file, so the base's
+# chunkah component is put back on it.
 write_kde_about_page() {
+    local tags
+
+    tags=$(getfattr --absolute-names -d -m '^user\.' "$KDE_ABOUT_PAGE")
     sed -i "s|^Website=.*|Website=${REPO_URL}|" "$KDE_ABOUT_PAGE"
     sed -i "s/^Variant=.*/Variant=63/" "$KDE_ABOUT_PAGE"
+    setfattr -h -P --restore=- <<< "$tags"
 }
 
 # --- main ---------------------------------------------------------------------

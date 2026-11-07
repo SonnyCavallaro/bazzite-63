@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 # The user half of a bazzite-63 host, after `ujust migrate` has done the
 # system half: the default Flatpak set, the development environment, JetBrains
-# Toolbox and the Microsoft 365 launcher, in the shape of migrate (a read-only
-# plan, then an apply that asks before each step), and the status of that
-# half, one line per check in the shape of verify-host. The helper behind
-# `ujust setup-b63`.
+# Toolbox and the Microsoft 365 launcher, and the status of that half, one line
+# per check in the shape of verify-host. The helper behind `ujust setup-b63`.
 #
 # Usage: bazzite-63-setup status          one OK/FAIL/INFO line per check
 #        bazzite-63-setup plan            read-only: what apply would do
@@ -98,7 +96,7 @@ require_signed_origin() {
 
     if [[ $origin != "$SIGNED_ORIGIN"* ]]; then
         abort "the host runs ${origin:-an unknown origin}, not bazzite-63 from its signed" \
-            "origin: ujust migrate plan, then ujust migrate apply and a reboot, first"
+            "origin: ujust migrate and a reboot, first"
     fi
 }
 
@@ -408,7 +406,8 @@ self_test_plan() {
     local output steps home
 
     if output=$(STUB_ORIGIN="$UNSIGNED_ORIGIN" \
-        run_in "$1/new" plan 2>&1) || ! grep -q '^ABORT: .*ujust migrate plan' <<< "$output"; then
+        run_in "$1/new" plan 2>&1) \
+        || ! grep -q '^ABORT: .*ujust migrate and a reboot' <<< "$output"; then
         self_test_fail "plan did not refuse an unsigned origin: $output"
     fi
 
@@ -456,7 +455,7 @@ self_test_apply() {
 
     if output=$(STUB_ORIGIN="$UNSIGNED_ORIGIN" ASK_WITHOUT_TERMINAL=1 \
         run_in "$1/new" apply 2>&1 <<< $'y\ny\ny\ny') || [ -s "$SELF_TEST_DIR/ujust.log" ] \
-        || ! grep -q '^ABORT: .*ujust migrate plan' <<< "$output"; then
+        || ! grep -q '^ABORT: .*ujust migrate and a reboot' <<< "$output"; then
         self_test_fail "apply did not refuse an unsigned origin: $output"
     fi
 

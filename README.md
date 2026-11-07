@@ -22,7 +22,7 @@ onto a release only through the gate that verified its signature.
   list, installed with the rest of it on demand (`ujust install-default-flatpaks`).
 - Konsole opens PowerShell, its profile wired to Homebrew and mise, bash until pwsh exists.
 - Segoe UI Variable as Plasma's interface font, downloaded into each home at its first login.
-- The user half of a host, `ujust setup-b63 status|plan|apply`, in the shape of `migrate`, and
+- The user half of a host, `ujust setup-b63 status|plan|apply`, and
   `ujust setup-dev` installing pwsh and sqlcmd from Homebrew next to bazzite-mx's mise
   runtimes.
 - SAP GUI for Java, IBM i Access Client Solutions and a Microsoft 365 launcher, through
@@ -40,13 +40,14 @@ afterwards.
 ```bash
 sudo rpm-ostree rebase ostree-unverified-registry:ghcr.io/sonnycavallaro/bazzite-63:stable
 systemctl reboot
-ujust migrate apply
+ujust migrate
 systemctl reboot
 ujust verify-host
 ujust setup-b63 apply
 ```
 
-The steps, the checks and what an NVIDIA machine needs are in
+`migrate` lists the changes it would make to the host and asks once before making them. The
+steps, the checks and what an NVIDIA machine needs are in
 [`docs/migration.md`](docs/migration.md).
 
 ## Verify an image
