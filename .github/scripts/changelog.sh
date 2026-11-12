@@ -2,11 +2,12 @@
 # Writes the notes and the title of a GitHub Release from what the release run
 # resolved, in the shape of ublue-os/bazzite's .github/workflows/changelog.py.
 #
-# Sections: the release line, the previous release, the major packages, the
-# commits since it, the packages changed on every flavour and on the NVIDIA ones,
-# and how to rebase, through `ujust migrate` since bazzite-rollback-helper
-# rebases to ghcr.io/ublue-os. The previous release is the newest in
-# `gh release list`, not a manifest's RepoTags, which an orphan tag would hijack.
+# Sections: the release line, the previous release, the bazzite-mx release it
+# builds on, the major packages, the commits since the previous release, the
+# packages changed on every flavour and on the NVIDIA ones, and how to rebase,
+# through `ujust migrate` since bazzite-rollback-helper rebases to
+# ghcr.io/ublue-os. The previous release is the newest in `gh release list`, not
+# a manifest's RepoTags, which an orphan tag would hijack.
 #
 # The build job writes packages-<image>.json from its SBOM, the release attaches
 # their union as packages.json, and the next release reads that asset instead of
@@ -42,6 +43,7 @@ set -euo pipefail
 . "$(dirname "$0")/lib.sh"
 
 SBOM_TYPE=application/vnd.spdx+json
+UPSTREAM_REPO=MatrixDJ96/bazzite-mx
 
 # One version per RPM name: the first listed, unless a later one carries an
 # epoch it lacks.
@@ -53,25 +55,17 @@ SBOM_PACKAGES='reduce (.artifacts[] | select(.type == "rpm" and (.name // "") !=
 
 # The Major packages rows, label and RPM; a row whose RPM no flavour carries is
 # left out.
-MAJOR_PACKAGES='[["Kernel", "kernel-core"], ["Kernel (Nvidia LTS)", "kernel-core-lts"],
+MAJOR_PACKAGES='[["Kernel", "kernel-core"],
     ["Firmware", "atheros-firmware"], ["Mesa", "mesa-filesystem"],
-    ["Gamescope", "terra-gamescope"], ["Gamescope Session", "gamescope-session"],
-    ["MangoHUD", "terra-mangohud"], ["InputPlumber", "inputplumber"],
-    ["OpenGamepadUI", "opengamepadui"], ["PowerStation", "powerstation"],
-    ["SteamOS-Manager", "steamos-manager-powerstation"],
-    ["sched_ext Schedulers", "scx-scheds"], ["UMU Launcher", "umu-launcher"],
-    ["Bazaar", "bazaar"], ["Distrobox", "distrobox"], ["UUPD", "uupd"],
-    ["Gnome", "gnome-control-center-filesystem"], ["KDE", "plasma-desktop"],
-    ["Waydroid", "waydroid"], ["Waydroid (Nvidia)", "waydroid-nvidia"],
-    ["Nvidia Open", "nvidia-kmod-common"], ["Nvidia LTS", "nvidia-kmod-common-lts"]]'
+    ["Gamescope", "terra-gamescope"], ["MangoHUD", "terra-mangohud"], ["KDE", "plasma-desktop"],
+    ["Docker", "docker-ce"], ["Podman", "podman"], ["QEMU", "qemu-kvm"], ["libvirt", "libvirt"],
+    ["VS Code", "code"], ["Sunshine", "Sunshine"]]'
 
 # Left out of the tables, and so is every package sharing the current version of
 # one of them.
 HIDDEN_VERSIONS='["kernel", "kernel-core", "kernel-lts", "kernel-core-lts", "mesa-filesystem",
-    "terra-gamescope", "gamescope-session", "inputplumber", "powerstation",
-    "steamos-manager-powerstation", "opengamepadui", "bazaar",
-    "gnome-control-center-filesystem", "plasma-desktop", "atheros-firmware",
-    "nvidia-kmod-common", "nvidia-kmod-common-lts"]'
+    "terra-gamescope", "plasma-desktop", "atheros-firmware", "nvidia-kmod-common",
+    "nvidia-kmod-common-lts"]'
 
 # Over {images: [{name, curr, prev}]}; $mode major prints the Major packages
 # table, changes the tables. prev is null for a flavour not compared, whose
@@ -144,6 +138,7 @@ PACKAGES_DIR=""
 PACKAGES_OUT=""
 ENV_FILES=()
 BASE_VERSION=""
+BASE_VERSIONS=""
 PREVIOUS_TAG=""
 PREVIOUS_REVISION=""
 IMAGE_NAMES=()
@@ -374,8 +369,8 @@ find_previous_tag() {
     PREVIOUS_TAG=$(previous_tag "$releases_json" "$RELEASE_TAG")
 }
 
-# read_flavours: the image and the base of every env file; BASE_VERSION the
-# highest of the bases' versions. Every base carries
+# read_flavours: the image and the base of every env file; BASE_VERSIONS the
+# distinct versions of the bases, BASE_VERSION the highest. Every base carries
 # org.opencontainers.image.version: resolve-base.sh refuses one without it.
 # Stops the run on a base it cannot inspect.
 read_flavours() {
@@ -394,7 +389,8 @@ read_flavours() {
         versions+=("$(label_of "$base_labels" org.opencontainers.image.version)")
     done
 
-    BASE_VERSION=$(printf '%s\n' "${versions[@]}" | sort -V | tail -n1 || true)
+    BASE_VERSIONS=$(printf '%s\n' "${versions[@]}" | sort -Vu || true)
+    BASE_VERSION=$(tail -n1 <<< "$BASE_VERSIONS")
 }
 
 # find_previous_revision: PREVIOUS_REVISION from the labels of the first flavour
@@ -568,6 +564,10 @@ write_header() {
             "changes. **One package per new version shown.**"
         echo
     fi
+
+    echo "Built on bazzite-mx $(awk -v url="https://github.com/${UPSTREAM_REPO}/releases/tag/" \
+        '{ printf "%s[%s](%s%s)", (NR > 1 ? ", " : ""), $0, url, $0 }' <<< "$BASE_VERSIONS")."
+    echo
 }
 
 write_major_packages() {
@@ -821,9 +821,9 @@ self_test_write_images_json() {
                 "nvtool": "2-1.fc44", "nvnew": "5-1.fc44"})},
             {name: "bazzite-mx",
              prev: ($all + $before + {"kernel-core": "7.2.1-ogc1.fc44",
-                "kernel-modules": "7.2.1-ogc1.fc44", "waydroid": "1.6.3-1.fc44"}),
+                "kernel-modules": "7.2.1-ogc1.fc44", "podman": "1.6.3-1.fc44"}),
              curr: ($all + $after + {"kernel-core": "7.2.2-ogc1.fc44",
-                "kernel-modules": "7.2.2-ogc1.fc44", "waydroid": "1.6.4-1.fc44"})},
+                "kernel-modules": "7.2.2-ogc1.fc44", "podman": "1.6.4-1.fc44"})},
             {name: "bazzite-mx-nvidia",
              prev: ($all + $before + {"kernel-core": "6.18.1-ogc1.fc44",
                 "kernel-modules": "6.18.1-ogc1.fc44", "nvidia-kmod-common": "3:580.1-1.fc44",
@@ -836,8 +836,8 @@ self_test_write_images_json() {
 }
 
 # self_test_package_tables <dir>: the change tables of the fixture, against the
-# tables changelog.py prints for it, and its Major table, changelog.py's rows
-# less the N/A ones; no change table when no flavour is compared.
+# tables changelog.py prints for it, and its Major table, the rows the fixture
+# carries; no change table when no flavour is compared.
 self_test_package_tables() {
     local dir=$1
     local output expected
@@ -851,12 +851,9 @@ self_test_package_tables() {
 | Name | Version |
 | --- | --- |
 | **Kernel** | 7.2.1-ogc1 ➡️ 7.2.2-ogc1 |
-| **Kernel (Nvidia LTS)** | 6.18.1-ogc1 ➡️ 6.18.2-ogc1 |
 | **Mesa** | 26.2.4-1 |
 | **KDE** | 6.7.5-1 |
-| **Waydroid** | 1.6.3-1 ➡️ 1.6.4-1 |
-| **Nvidia Open** | 615.1-1 ➡️ 615.2-1 |
-| **Nvidia LTS** | 580.1-1 ➡️ 580.2-1 |
+| **Podman** | 1.6.3-1 ➡️ 1.6.4-1 |
 EOF
     )" ]; then
         fail_self_test "Major packages table wrong: ${output//$'\n'/ / }"
@@ -907,8 +904,7 @@ self_test_uncompared_flavour() {
         "$dir/images.json" > "$dir/gap.json"
     output=$(package_tables "$dir/gap.json" major)
 
-    if ! grep -qxF '| **Nvidia Open** | 615.2-1 |' <<< "$output" \
-        || ! grep -qxF '| **Kernel** | 7.2.1-ogc1 ➡️ 7.2.2-ogc1 |' <<< "$output"; then
+    if ! grep -qxF '| **Kernel** | 7.2.1-ogc1 ➡️ 7.2.2-ogc1 |' <<< "$output"; then
         fail_self_test "a flavour not compared reached an arrow: ${output//$'\n'/ / }"
     fi
 
@@ -919,12 +915,12 @@ self_test_uncompared_flavour() {
     fi
 
     # A package the compared flavour removed, still carried by one not compared.
-    jq -n '{images: [{name: "bazzite-mx", prev: {bazaar: "1-1.fc44"}, curr: {}},
-        {name: "bazzite-mx-nvidia-open", prev: null, curr: {bazaar: "2-1.fc44"}}]}' \
+    jq -n '{images: [{name: "bazzite-mx", prev: {code: "1-1.fc44"}, curr: {}},
+        {name: "bazzite-mx-nvidia-open", prev: null, curr: {code: "2-1.fc44"}}]}' \
         > "$dir/removed.json"
     output=$(package_tables "$dir/removed.json" major)
 
-    if ! grep -qxF '| **Bazaar** | 2-1 |' <<< "$output"; then
+    if ! grep -qxF '| **VS Code** | 2-1 |' <<< "$output"; then
         fail_self_test "a removed package drew an arrow: ${output//$'\n'/ / }"
     fi
 }
@@ -936,16 +932,16 @@ self_test_package_keys() {
     local dir=$1
     local output
 
-    # The flavours out of name order, each with its own bazaar: the last by
+    # The flavours out of name order, each with its own VS Code: the last by
     # name gives the value.
     jq -n '{images: [
-        {name: "bazzite-mx-nvidia", prev: {bazaar: "3-1.fc44"}, curr: {bazaar: "3-1.fc44"}},
-        {name: "bazzite-mx-nvidia-open", prev: {bazaar: "2-1.fc44"}, curr: {bazaar: "2-1.fc44"}},
-        {name: "bazzite-mx", prev: {bazaar: "1-1.fc44"}, curr: {bazaar: "1-1.fc44"}}]}' \
+        {name: "bazzite-mx-nvidia", prev: {code: "3-1.fc44"}, curr: {code: "3-1.fc44"}},
+        {name: "bazzite-mx-nvidia-open", prev: {code: "2-1.fc44"}, curr: {code: "2-1.fc44"}},
+        {name: "bazzite-mx", prev: {code: "1-1.fc44"}, curr: {code: "1-1.fc44"}}]}' \
         > "$dir/order.json"
     output=$(package_tables "$dir/order.json" major)
 
-    if ! grep -qxF '| **Bazaar** | 2-1 |' <<< "$output"; then
+    if ! grep -qxF '| **VS Code** | 2-1 |' <<< "$output"; then
         fail_self_test "the value not taken from the last flavour by name: ${output//$'\n'/ / }"
     fi
 
@@ -974,14 +970,18 @@ self_test_package_keys() {
     fi
 }
 
-# self_test_header: a first release states no previous one.
+# self_test_header: a first release states no previous one, then its base.
 self_test_header() {
     local output
-    local expected='This is an automatically generated changelog for release `44.20261009`.'
+    local url=https://github.com/MatrixDJ96/bazzite-mx/releases/tag/44.20261006
+    local expected='This is an automatically generated changelog for release `44.20261009`.
+
+Built on bazzite-mx [44.20261006]('"$url"').'
 
     output=$(
         RELEASE_TAG=44.20261009
         PREVIOUS_TAG=""
+        BASE_VERSIONS=44.20261006
         write_header
     )
 
@@ -1472,6 +1472,7 @@ self_test_answer() {
 self_test_release() {
     local dir=$1/release
     local registry=ghcr.io/sonnycavallaro base=ghcr.io/matrixdj96
+    local tag_url=https://github.com/MatrixDJ96/bazzite-mx/releases/tag/
     local sbom='{"artifacts":[{"type":"rpm","name":"kernel-core","version":"%s"},
         {"type":"rpm","name":"foo","version":"%s"}%s]}'
     local handwritten='Hand-written: the `stable` text, as typed.'
@@ -1504,7 +1505,7 @@ self_test_release() {
 
     self_test_answer "$dir" "pull_$registry/bazzite-63@sha256:sc1" \
         "$(printf "$sbom" 7.2.2-1.fc44 1.1-1.fc44 \
-            ',{"type":"rpm","name":"bazaar","version":"2-1"}')"
+            ',{"type":"rpm","name":"Sunshine","version":"2-1"}')"
     self_test_answer "$dir" "pull_$registry/bazzite-63@sha256:sp1" \
         "$(printf "$sbom" 7.2.1-1.fc44 1.0-1.fc44 '')"
 
@@ -1526,8 +1527,10 @@ self_test_release() {
         || ! grep -qxF 'This is an automatically generated changelog for release `44.20261009`.' \
             <<< "$notes" \
         || ! grep -qF 'From previous `stable` version `44.20261001.10` there' <<< "$notes" \
+        || ! grep -qxF "Built on bazzite-mx [44.20261006.9](${tag_url}44.20261006.9)." \
+            <<< "$notes" \
         || ! grep -qxF '| **Kernel** | 7.2.1-1 ➡️ 7.2.2-1 |' <<< "$notes" \
-        || ! grep -qxF '| **Bazaar** | 2-1 |' <<< "$notes" \
+        || ! grep -qxF '| **Sunshine** | 2-1 |' <<< "$notes" \
         || ! grep -qF '| fix(ci): since then | Tester |' <<< "$notes" \
         || ! grep -qxF '| 🔄 | foo | 1.0-1 | 1.1-1 |' <<< "$notes" \
         || [ "$(tail -n 8 <<< "$notes")" != "$(
@@ -1549,7 +1552,7 @@ EOF
     mkdir -p "$dir/packages"
     rm -f "$dir/answers"/pull_*
     echo '{"image":"bazzite-63","version":"44.20261009","packages":{"kernel-core":"7.2.2-1.fc44",
-        "foo":"1.1-1.fc44","bazaar":"2-1"}}' > "$dir/packages/packages-bazzite-63.json"
+        "foo":"1.1-1.fc44","Sunshine":"2-1"}}' > "$dir/packages/packages-bazzite-63.json"
     self_test_answer "$dir" download_44.20261001.10 '{"version":"44.20261001.10","images":{
         "bazzite-63":{"kernel-core":"7.2.1-1.fc44","foo":"1.0-1.fc44"}}}'
 
@@ -1591,7 +1594,7 @@ self_test() {
     self_test_inspect_failures "$dir"
 
     echo "self-test ok: previous tag picked 3 ways, SBOM read as changelog.py reads it," \
-        "change tables equal to changelog.py's, Major rows its present ones," \
+        "change tables equal to changelog.py's, Major rows the present ones," \
         "header and commits written," \
         "a retried inspect kept clean," \
         "SBOM absence told from a transport error, packages read with their gaps," \

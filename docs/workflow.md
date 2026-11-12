@@ -99,7 +99,9 @@ release.yml   workflow_dispatch: reason (becomes the run name), promote_stable (
                 --preserve-digests onto :<tag>, refused when :<tag> already points elsewhere
                 -> :stable, only with promote_stable AND vars.PROMOTE_STABLE
   release     changelog.sh (the sections of Bazzite's changelog.py: the handwritten text or the
-              generated line, major packages from the build job's packages file and the
+              generated line, a link to the bazzite-mx release it builds on, major packages
+              (kernel, firmware, Mesa, Gamescope, MangoHUD, KDE, then Docker, Podman, QEMU, libvirt,
+              VS Code, Sunshine) from the build job's packages file and the
               previous release's packages.json, the SBOMs when either is missing, commits since
               the previous release's revision, then All Images, one package per new version,
               and how to rebase, through ujust migrate)
@@ -193,7 +195,7 @@ counts as no release, as `changelog.sh` reads it.
 - no release run is queued or running;
 - no release with the same reason started in the last 24 hours.
 
-The reason it passes is `upstream:<12 hex of the base digest>`.
+The reason it passes is `upstream <base version>`, the version of bazzite-mx's `:stable`.
 
 The watcher fails closed. A base that cannot be resolved, an image that cannot be inspected or
 a `:stable` without the label make the run red and dispatch nothing; the next cron retries. A
