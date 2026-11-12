@@ -84,6 +84,12 @@ before the install, the two knobs the `%post` and the cron read, removes
 `/etc/cron.daily/google-chrome` and puts the vendored repository file back after the `%post`.
 Chrome moves with the image's releases.
 
+For now it is pinned to 157.0.8103.38. From 157.0.8103.50 Google builds the RPM with rpm 6, whose
+packages carry their sizes in `LONGSIZE` and `LONGFILESIZES` alone, and chunkah v0.7.0 stops on
+one (coreos/chunkah#189): `41-chrome.sh` downloads the pinned version from Google's server,
+checks its signature with `rpmkeys --checksig` against the pinned key and installs it. The pin
+goes once the `CHUNKAH_VERSION` of the release reads those packages.
+
 The payload unpacks under `/opt/google`, which a host's `/var` holds: the script moves it to
 `/usr/lib/opt/google` and `/usr/lib/tmpfiles.d/bazzite-63-opt.conf` links `/var/opt/google`
 back at boot, so the paths baked into the wrapper resolve. `/etc/xdg/mimeapps.list` names

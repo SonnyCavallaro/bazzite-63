@@ -37,6 +37,10 @@ VERIFY_HOST_COMMENT='# Nothing is required by the image; Firefox is reported.'
 BASE_RECIPES=/usr/share/ublue-os/just/95-bazzite-mx.just
 VERIFY_HOST_HELP='      echo "GPU and flavour, NTFS driver, ntfsplus residue, Firefox Flatpak,'
 VERIFY_HOST_HELP+=' image .repo files."'
+# chunkah v0.7.0 cannot read a package built with rpm 6, which Chrome is from
+# 157.0.8103.50 (coreos/chunkah#189): pinned until CHUNKAH_VERSION reads one.
+CHROME_PIN=https://dl.google.com/linux/chrome/rpm/stable/x86_64/
+CHROME_PIN+=google-chrome-stable-157.0.8103.38-1.x86_64.rpm
 
 # --- the steps ----------------------------------------------------------------
 
@@ -51,7 +55,14 @@ install_chrome() {
     assert_key_fingerprint "$KEY"
 
     mkdir -p /var/opt
-    install_from_repo google-chrome google-chrome-stable
+    curl -fsSL --retry 5 --retry-all-errors -o "$BUILD_TMP/google-chrome.rpm" "$CHROME_PIN"
+    rpmkeys --import "$KEY"
+
+    if ! rpmkeys --checksig "$BUILD_TMP/google-chrome.rpm"; then
+        fail_build "$CHROME_PIN: signature not verified against $KEY"
+    fi
+
+    dnf_retry -y install "$BUILD_TMP/google-chrome.rpm"
 
     install -m 0644 "$VENDORED_REPO" "$CHROME_REPO"
     rm -f /etc/cron.daily/google-chrome

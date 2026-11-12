@@ -65,7 +65,7 @@ Each script owns one artefact and ships a `--self-test`.
 | `11-image-signing.sh`   | the public key and the `policy.json` scope for `ghcr.io/sonnycavallaro`, next to the base's                                                  |
 | `12-host-helpers.sh`    | the base's `migrate`, `verify-host` and `host.sh` renamed onto `ghcr.io/sonnycavallaro`, each anchor checked first                           |
 | `40-firefox-flatpak.sh` | bazzite-mx's Firefox RPM removed, its Flatpak deny line dropped, each anchor checked                                                      |
-| `41-chrome.sh`          | Chrome from its vendored repository, payload in `/usr/lib/opt/google`, the default browser; Flatpak denied, helpers turned to Chrome         |
+| `41-chrome.sh`          | Chrome pinned, from Google's server, payload in `/usr/lib/opt/google`, the default browser; Flatpak denied, helpers turned to Chrome         |
 | `42-flatpak-apps.sh`    | this image's apps appended to Bazzite's default Flatpak list, each once, its VulkanLayer runtimes and Firefox dropped                        |
 | `43-tn5250.sh`          | tn5250 and xt5250, the IBM i 5250 terminal, from Fedora's repositories                                                                       |
 | `45-konsole-profile.sh` | asserts the base still seeds the skel `profile.ps1` into older homes; the files come from `system_files/`                                  |

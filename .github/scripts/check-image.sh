@@ -27,7 +27,7 @@ set -euo pipefail
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
 
-# google-chrome-stable proves this layer's vendored repository was installed;
+# google-chrome-stable proves this layer's Chrome was installed;
 # the others, from three of the base's five, with the modules and the ntfs
 # route below, that what the image inherits from bazzite-mx is still there.
 PROBE_PACKAGES="docker-ce code 1password google-chrome-stable"
