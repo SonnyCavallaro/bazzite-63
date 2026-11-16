@@ -30,3 +30,5 @@ source "$BUILD_FILES/lib/repos.sh"
 source "$BUILD_FILES/lib/gpg.sh"
 # shellcheck source=just.sh
 source "$BUILD_FILES/lib/just.sh"
+# shellcheck source=bazaar.sh
+source "$BUILD_FILES/lib/bazaar.sh"

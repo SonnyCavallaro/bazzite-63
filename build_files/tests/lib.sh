@@ -9,6 +9,8 @@ source "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../lib/just.sh"
 # shellcheck source=../lib/gpg.sh
 source "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../lib/gpg.sh"
 
+BAZAAR_BLOCKLIST=/usr/share/ublue-os/bazaar/blocklist.yaml
+
 # on_one_line <fallback> [<separator>]: stdin on one line, the separator (a
 # blank) between its lines, or the fallback when stdin is empty. A FAIL line
 # built with it never ends blank, whatever the probe read.
@@ -178,5 +180,28 @@ check_recipe_help() {
         echo "OK: ujust $recipe help runs"
     else
         echo "FAIL: ujust $recipe help: $(head -n2 <<< "$output" | on_one_line 'no output')"
+    fi
+}
+
+# check_bazaar_block <app-id>: the base's Bazaar blocklist, parsed as YAML,
+# names the id once across its unconditional `block:` lists.
+check_bazaar_block() {
+    local app=$1
+    local count
+
+    count=$(
+        python3 - "$app" "$BAZAAR_BLOCKLIST" 2>&1 << 'EOF' || true
+import sys, yaml
+app, path = sys.argv[1:]
+with open(path) as f:
+    lists = yaml.safe_load(f)["blocklists"]
+print(sum((b.get("block") or []).count(app) for b in lists if not b.get("conditions")))
+EOF
+    )
+
+    if [ "$count" = 1 ]; then
+        echo "OK: $BAZAAR_BLOCKLIST blocks $app (once)"
+    else
+        echo "FAIL: $BAZAAR_BLOCKLIST: $app counted $(on_one_line 'nothing' <<< "$count")"
     fi
 }
