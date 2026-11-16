@@ -2,10 +2,10 @@
 # Smoke test of 41-chrome.sh: the package and its key, the repository read
 # through the vendored key, the self-updating machinery off, the payload under
 # /usr/lib/opt with its boot link, Chrome the default browser beside the base's
-# own entries, its Flatpak denied, and bazzite-mx's helpers reporting a Chrome
-# Flatpak, with no Firefox item left in verify-host or its help; verify-host,
-# which has no self-test, still parses and ends on its main call, and its
-# check, run alone, tells a Chrome Flatpak from none.
+# own entries, its Flatpak blocked in Bazaar, and bazzite-mx's helpers
+# reporting a Chrome Flatpak, with no Firefox item left in verify-host or its
+# help; verify-host, which has no self-test, still parses and ends on its main
+# call, and its check, run alone, tells a Chrome Flatpak from none.
 #
 # Usage: run by tests/run.sh inside the image (offline, on the cleaned tree).
 # Output: one `OK: <what>` or `FAIL: <what>` line per check, on stdout.
@@ -18,7 +18,6 @@ source "$(dirname "$(realpath "$0")")/lib.sh"
 KEY=/etc/pki/rpm-gpg/RPM-GPG-KEY-google-chrome
 TMPFILES_CONF=/usr/lib/tmpfiles.d/bazzite-63-opt.conf
 MIMEAPPS=/etc/xdg/mimeapps.list
-FLATPAK_BLOCKLIST=/usr/share/ublue-os/flatpak-blocklist
 VERIFY_HOST=/usr/libexec/bazzite-mx-verify-host
 BASE_RECIPES=/usr/share/ublue-os/just/95-bazzite-mx.just
 
@@ -65,18 +64,10 @@ check_default_browser() {
     fi
 }
 
-# holds_line <line> <file>: <file> holds <line> exactly once.
-holds_line() {
-    [ "$(grep -cxF -- "$1" "$2" || true)" = 1 ]
-}
-
-check_flatpak_denied() {
-    if holds_line 'deny com.google.Chrome/*' "$FLATPAK_BLOCKLIST" \
-        && holds_line 'deny com.valvesoftware.Steam/*' "$FLATPAK_BLOCKLIST"; then
-        echo "OK: $FLATPAK_BLOCKLIST denies com.google.Chrome once, the base's lines kept"
-    else
-        echo "FAIL: $FLATPAK_BLOCKLIST: com.google.Chrome or the base's Steam not denied once"
-    fi
+# Ours once, the base's Steam entry kept.
+check_flatpak_blocked() {
+    check_bazaar_block com.google.Chrome
+    check_bazaar_block com.valvesoftware.Steam
 }
 
 # The rewritten check run alone on a Flatpak list, its reporters stubbed.
@@ -123,6 +114,6 @@ check_repo_reads_key /etc/yum.repos.d/google-chrome.repo "$KEY"
 check_self_updating_off
 check_payload
 check_default_browser
-check_flatpak_denied
+check_flatpak_blocked
 check_helpers
 check_verify_host_flatpaks

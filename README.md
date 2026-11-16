@@ -17,7 +17,7 @@ onto a release only through the gate that verified its signature.
 - `ujust migrate` and `ujust verify-host`, bazzite-mx's, pointed at this image's registry.
 - Firefox out of the image: bazzite-mx's Fedora RPM removed, Bazzite's Flatpak allowed.
 - Google Chrome as a system RPM from Google's repository, the default web browser, its Flatpak
-  denied.
+  hidden in Bazaar.
 - Thunderbird, Proton Pass, DBeaver, Remmina, Parsec and Discord in Bazzite's default Flatpak
   list, installed with the rest of it on demand (`ujust install-default-flatpaks`).
 - Konsole opens PowerShell, its profile wired to Homebrew and mise, bash until pwsh exists.

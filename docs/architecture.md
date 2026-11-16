@@ -59,13 +59,14 @@ Each script owns one artefact and ships a `--self-test`.
 | `lib/repos.sh`          | `install_from_repo`, `enabled_repos`                                                                                                         |
 | `lib/just.sh`           | `recipe_set`; output captured before any grep                                                                                                 |
 | `lib/gpg.sh`            | the `KEY_FPR` table of this image's vendor keys, `key_fingerprint` and `assert_key_fingerprint`                                              |
+| `lib/bazaar.sh`         | `block_in_bazaar`, `bazaar_block_count`: an app id in the base's Bazaar blocklist                                                            |
 | `00-prep.sh`            | dnf keeps its cache and waits 60 s for COPR and mirrors, fails on an unreachable repository; the base's repositories and the SHA-256 of its skel `profile.ps1` recorded |
 | `01-system-files.sh`    | `rsync` of `system_files/` over the tree, every file on a fresh inode                                                                        |
 | `10-image-info.sh`      | identity: `image-info.json`, os-release, the KDE About page                                                                                  |
 | `11-image-signing.sh`   | the public key and the `policy.json` scope for `ghcr.io/sonnycavallaro`, next to the base's                                                  |
 | `12-host-helpers.sh`    | the base's `migrate`, `verify-host` and `host.sh` renamed onto `ghcr.io/sonnycavallaro`, each anchor checked first                           |
-| `40-firefox-flatpak.sh` | bazzite-mx's Firefox RPM removed, its Flatpak deny line dropped, each anchor checked                                                      |
-| `41-chrome.sh`          | Chrome pinned, from Google's server, payload in `/usr/lib/opt/google`, the default browser; Flatpak denied, helpers turned to Chrome         |
+| `40-firefox-flatpak.sh` | bazzite-mx's Firefox RPM removed, its Flatpak's Bazaar block dropped, each anchor checked                                                 |
+| `41-chrome.sh`          | Chrome pinned, from Google's server, payload in `/usr/lib/opt/google`, the default browser; Flatpak blocked in Bazaar, helpers to Chrome     |
 | `42-flatpak-apps.sh`    | this image's apps appended to Bazzite's default Flatpak list, each once, its VulkanLayer runtimes and Firefox dropped                        |
 | `43-tn5250.sh`          | tn5250 and xt5250, the IBM i 5250 terminal, from Fedora's repositories                                                                       |
 | `45-konsole-profile.sh` | asserts the base still seeds the skel `profile.ps1` into older homes; the files come from `system_files/`                                  |

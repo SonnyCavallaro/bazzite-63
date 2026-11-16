@@ -3,19 +3,19 @@
 # present for every user and the system-wide default browser. The RPM's own
 # self-updating machinery stays off: on an image dnf never updates it, and
 # its repository entry and daily cron would only re-enable a repository.
-# Chrome's Flatpak is denied the way bazzite-mx denies Firefox's beside its
-# RPM, and bazzite-mx's helpers, which report a Firefox Flatpak, report
-# Chrome's; verify-host's INFO line carries the profile copy.
+# Chrome's Flatpak is blocked in Bazaar the way bazzite-mx blocks Firefox's
+# beside its RPM, and bazzite-mx's helpers, which report a Firefox Flatpak,
+# report Chrome's; verify-host's INFO line carries the profile copy.
 #
 # Usage: run by build.sh after 12-host-helpers.sh; no arguments.
 # Writes: /etc/default/google-chrome, read by the RPM's %post and its cron;
 #   the google-chrome-stable package, its payload moved from /var/opt/google
 #   to /usr/lib/opt/google with the tmpfiles line that links it back at boot;
 #   the vendored google-chrome.repo put back after the %post; Chrome as the
-#   web browser in /etc/xdg/mimeapps.list, on a fresh inode; the line
-#   `deny com.google.Chrome/*` in the Flatpak filter; bazzite-mx-verify-host's
-#   Flatpak check and verify-host's help line in 95-bazzite-mx.just turned
-#   from Firefox to Chrome, each on a fresh inode.
+#   web browser in /etc/xdg/mimeapps.list, on a fresh inode; com.google.Chrome
+#   in the Bazaar blocklist; bazzite-mx-verify-host's Flatpak check and
+#   verify-host's help line in 95-bazzite-mx.just turned from Firefox to
+#   Chrome, each on a fresh inode.
 # Exit status: 0 done; the build stops on a `FAIL: …` line.
 
 # shellcheck source=lib/env.sh
@@ -28,9 +28,6 @@ CHROME_DEFAULTS=/etc/default/google-chrome
 TMPFILES_CONF=/usr/lib/tmpfiles.d/bazzite-63-opt.conf
 MIMEAPPS=/etc/xdg/mimeapps.list
 BROWSER_TYPES=(x-scheme-handler/http x-scheme-handler/https text/html application/xhtml+xml)
-# The base's Flatpak filter, which bazzite-flatpak-manager sets on Flathub.
-FLATPAK_BLOCKLIST=/usr/share/ublue-os/flatpak-blocklist
-DENY_LINE='deny com.google.Chrome/*'
 VERIFY_HOST=/usr/libexec/bazzite-mx-verify-host
 VERIFY_HOST_HEADER='# of fstab right and mounted, no residue of an earlier setup, the Firefox'
 VERIFY_HOST_COMMENT='# Nothing is required by the image; Firefox is reported.'
@@ -98,22 +95,6 @@ set_default_browser() {
     done
 
     mv -f "$MIMEAPPS.new" "$MIMEAPPS"
-}
-
-deny_chrome_flatpak() {
-    local count
-
-    {
-        awk 1 "$FLATPAK_BLOCKLIST"
-        echo "$DENY_LINE"
-    } > "$FLATPAK_BLOCKLIST.new"
-    mv -f "$FLATPAK_BLOCKLIST.new" "$FLATPAK_BLOCKLIST"
-
-    count=$(grep -cxF -- "$DENY_LINE" "$FLATPAK_BLOCKLIST" || true)
-
-    if [ "$count" != 1 ]; then
-        fail_build "$FLATPAK_BLOCKLIST: '$DENY_LINE' found ${count:-0} times, expected once"
-    fi
 }
 
 # <file> <line>: status 0 when <file> holds <line> exactly once.
@@ -184,7 +165,7 @@ disable_self_updating
 install_chrome
 relocate_payload
 set_default_browser
-deny_chrome_flatpak
+block_in_bazaar com.google.Chrome
 mirror_verify_host_check
 mirror_verify_host_help
 

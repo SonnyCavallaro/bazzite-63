@@ -1,22 +1,19 @@
 #!/usr/bin/env bash
 # Firefox leaves the image: bazzite-mx's Fedora RPM is removed with the Bazzite
-# defaults copied into it, and the Flatpak's deny line leaves the base's
-# filter, so a user who wants Firefox installs Bazzite's Flatpak.
+# defaults copied into it, and the Flatpak's entry leaves the base's Bazaar
+# blocklist, so a user who wants Firefox installs Bazzite's Flatpak.
 #
 # Usage: run by build.sh; no arguments.
 # Writes: firefox and firefox-langpacks removed, /usr/lib64/firefox gone; the
-#   `deny org.mozilla.firefox/*` line out of the Flatpak filter, on a fresh
-#   inode.
-# Exit status: 0 done; the build stops on a `FAIL: …` line when the deny line
-#   is not where the base put it.
+#   org.mozilla.firefox entry out of the Bazaar blocklist, on a fresh inode.
+# Exit status: 0 done; the build stops on a `FAIL: …` line when the entry is
+#   not where the base put it.
 
 # shellcheck source=lib/env.sh
 source "$(dirname "$(realpath "$0")")/lib/env.sh"
 
 FIREFOX_DIR=/usr/lib64/firefox
-# The base's Flatpak filter, which bazzite-flatpak-manager sets on Flathub.
-FLATPAK_BLOCKLIST=/usr/share/ublue-os/flatpak-blocklist
-DENY_LINE='deny org.mozilla.firefox/*'
+FIREFOX_ID=org.mozilla.firefox
 
 # --- the steps ----------------------------------------------------------------
 
@@ -27,17 +24,29 @@ remove_firefox_rpm() {
     rm -rf "$FIREFOX_DIR"
 }
 
+# The list bazzite-mx's block_in_bazaar appended for Firefox goes whole, and
+# no unconditional list blocks the id afterwards.
 allow_firefox_flatpak() {
-    local count
-
-    count=$(grep -cxF -- "$DENY_LINE" "$FLATPAK_BLOCKLIST" || true)
-
-    if [ "$count" != 1 ]; then
-        fail_build "$FLATPAK_BLOCKLIST: '$DENY_LINE' found ${count:-0} times, expected once"
+    if [ "$(bazaar_block_count "$FIREFOX_ID" "$BAZAAR_BLOCKLIST")" != 1 ]; then
+        fail_build "$BAZAAR_BLOCKLIST: $FIREFOX_ID not blocked once by the base"
     fi
 
-    grep -vxF -- "$DENY_LINE" "$FLATPAK_BLOCKLIST" > "$FLATPAK_BLOCKLIST.new" || true
-    mv -f "$FLATPAK_BLOCKLIST.new" "$FLATPAK_BLOCKLIST"
+    if ! python3 - "$FIREFOX_ID" "$BAZAAR_BLOCKLIST" > "$BAZAAR_BLOCKLIST.new" << 'EOF'; then
+import sys
+app, path = sys.argv[1:]
+entry = f"\n  - priority: 0\n    block:\n    - {app}\n"
+text = open(path).read()
+if text.count(entry) != 1:
+    sys.exit(1)
+sys.stdout.write(text.replace(entry, ""))
+EOF
+        fail_build "$BAZAAR_BLOCKLIST: the base's $FIREFOX_ID list not found once"
+    fi
+    mv -f "$BAZAAR_BLOCKLIST.new" "$BAZAAR_BLOCKLIST"
+
+    if [ "$(bazaar_block_count "$FIREFOX_ID" "$BAZAAR_BLOCKLIST")" != 0 ]; then
+        fail_build "$BAZAAR_BLOCKLIST: $FIREFOX_ID still blocked"
+    fi
 }
 
 # --- main ---------------------------------------------------------------------
